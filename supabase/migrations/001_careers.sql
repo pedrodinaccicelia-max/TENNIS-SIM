@@ -29,7 +29,7 @@ create index if not exists careers_user_updated_idx on public.careers (user_id, 
 
 -- atualiza updated_at a cada alteração
 create or replace function public.careers_touch_updated_at()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = public as $$
 begin
   new.updated_at := now();
   return new;
@@ -60,8 +60,13 @@ alter table public.careers enable row level security;
 
 -- libera a tabela para usuários logados (as regras abaixo limitam a cada um as próprias carreiras)
 grant usage on schema public to authenticated;
-grant select, insert, update, delete on table public.careers to authenticated;
 revoke all on table public.careers from anon;
+revoke all on table public.careers from authenticated;
+grant select, insert, update, delete on table public.careers to authenticated;
+
+-- funções de gatilho não ficam expostas na API
+revoke execute on function public.careers_touch_updated_at() from public, anon, authenticated;
+revoke execute on function public.careers_limit_per_user() from public, anon, authenticated;
 
 drop policy if exists "careers_select_own" on public.careers;
 create policy "careers_select_own" on public.careers

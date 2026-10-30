@@ -44,7 +44,10 @@
   // ---------- conta (Supabase) ----------
   // mode: null (ainda não escolheu), 'guest' (salva só no aparelho) ou 'user' (salva na nuvem)
   let account = { mode: null, user: null };
-  let home = { checking: Cloud.enabled, email: '', sent: false, sending: false, err: '', list: null, listErr: '', loading: false, confirmDel: null, importing: false };
+  // authMode: 'login' | 'signup' | 'reset' (esqueci a senha) | 'newpass' (criar nova senha pelo link)
+  let home = { checking: Cloud.enabled, authMode: 'login', email: '', err: '', info: '', busy: false, showPw: false,
+               prov: { google: false, email: true, autoconfirm: false },
+               list: null, listErr: '', loading: false, confirmDel: null, importing: false };
 
   function persist() {
     if (account.mode === 'user') { if (state) scheduleCloudSave(); return; }
@@ -138,9 +141,17 @@
   }
   function onAuth(user, event) {
     home.checking = false;
+    if (event === 'PASSWORD_RECOVERY' && user) {
+      // veio do link "esqueci a senha": pede a nova senha antes de qualquer coisa
+      flushCloud(); clearLive();
+      account = { mode: 'user', user }; state = null;
+      home.authMode = 'newpass'; home.err = ''; home.info = '';
+      ui = { view: 'home', confirm: null, modal: null, fresh: false };
+      render(); return;
+    }
     if (user && account.mode !== 'user') {
       flushCloud(); clearLive();
-      account = { mode: 'user', user }; state = null; home.sent = false; home.err = '';
+      account = { mode: 'user', user }; state = null; home.err = ''; home.info = ''; home.authMode = 'login';
       ui = { view: 'home', confirm: null, modal: null, fresh: false };
       loadList();
     } else if (!user && account.mode === 'user') {
@@ -587,9 +598,61 @@
 
   // ---------- tela inicial: entrar, jogar como convidado, minhas carreiras ----------
   function fmtDate(iso) { try { return new Date(iso).toLocaleDateString('pt-BR'); } catch (e) { return ''; } }
+  const GOOGLE_G = '<svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
+
+  function viewAuthCard() {
+    const m = home.authMode, busy = home.busy;
+    const err = home.err ? `<p class="form-err" role="alert">${esc(home.err)}</p>` : '';
+    const info = home.info ? `<div class="end-note">${home.info}</div>` : '';
+    const pwField = (id, label, auto) => `<div class="field"><label for="${id}">${label}</label>
+      <div class="pw-wrap"><input class="input" id="${id}" type="${home.showPw ? 'text' : 'password'}" autocomplete="${auto}" minlength="8" placeholder="Mínimo de 8 caracteres">
+      <button type="button" class="pw-toggle" id="pwToggle" aria-label="${home.showPw ? 'Esconder senha' : 'Mostrar senha'}">${home.showPw ? 'Esconder' : 'Mostrar'}</button></div></div>`;
+    const emailField = `<div class="field"><label for="f-email">E-mail</label>
+      <input class="input" id="f-email" type="email" inputmode="email" autocomplete="email" placeholder="voce@email.com" value="${esc(home.email)}"></div>`;
+    if (m === 'reset') return `
+      <span class="eyebrow">Com conta</span><h2>Esqueci a senha</h2>
+      <p class="muted">Digite o e-mail da sua conta. Vamos mandar um link para você criar uma senha nova.</p>
+      ${info}
+      <form id="authForm" class="stack" novalidate>${emailField}
+        <button class="btn btn-primary" type="submit" ${busy ? 'disabled' : ''}>${busy ? 'Enviando…' : 'Enviar link'}</button>${err}</form>
+      <div class="btn-row"><button class="btn btn-ghost" id="toLogin">Voltar para entrar</button></div>`;
+    const google = home.prov.google ? `<button class="btn btn-google" id="googleBtn" ${busy ? 'disabled' : ''}>${GOOGLE_G}Entrar com Google</button>
+      <div class="or"><span>ou com e-mail e senha</span></div>` : '';
+    return `
+      <span class="eyebrow">Com conta</span><h2>${m === 'signup' ? 'Criar conta' : 'Entrar'}</h2>
+      <p class="muted">Suas carreiras ficam salvas na nuvem e você continua de qualquer aparelho.</p>
+      ${google}
+      <div class="seg auth-tabs" role="tablist">
+        <button type="button" role="tab" id="tabLogin" aria-pressed="${m === 'login'}" aria-selected="${m === 'login'}">Entrar</button>
+        <button type="button" role="tab" id="tabSignup" aria-pressed="${m === 'signup'}" aria-selected="${m === 'signup'}">Criar conta</button>
+      </div>
+      ${info}
+      <form id="authForm" class="stack" novalidate>
+        ${emailField}
+        ${pwField('f-pass', 'Senha', m === 'signup' ? 'new-password' : 'current-password')}
+        ${m === 'signup' ? `<div class="field"><label for="f-pass2">Repita a senha</label><input class="input" id="f-pass2" type="${home.showPw ? 'text' : 'password'}" autocomplete="new-password"></div>` : ''}
+        <button class="btn btn-primary" type="submit" ${busy ? 'disabled' : ''}>${busy ? 'Aguarde…' : m === 'signup' ? 'Criar conta' : 'Entrar'}</button>
+        ${err}
+      </form>
+      ${m === 'login' ? `<button class="linkish" id="forgotBtn">Esqueci a senha</button>` : ''}`;
+  }
+
+  function viewNewPassword() {
+    return `
+    <section class="hero"><span class="eyebrow">Conta · ${esc(account.user.email || '')}</span><h1>Crie uma senha nova</h1></section>
+    <section class="panel home-card" style="max-width:520px">
+      <form id="newPassForm" class="stack" novalidate>
+        <div class="field"><label for="f-np1">Nova senha</label><input class="input" id="f-np1" type="password" autocomplete="new-password" minlength="8" placeholder="Mínimo de 8 caracteres"></div>
+        <div class="field"><label for="f-np2">Repita a nova senha</label><input class="input" id="f-np2" type="password" autocomplete="new-password"></div>
+        <button class="btn btn-primary" type="submit" ${home.busy ? 'disabled' : ''}>${home.busy ? 'Salvando…' : 'Salvar nova senha'}</button>
+        ${home.err ? `<p class="form-err" role="alert">${esc(home.err)}</p>` : ''}
+      </form>
+    </section>`;
+  }
+
   function viewHome() {
     if (home.checking) return `<section class="hero"><span class="eyebrow">Tennis Simulator</span><h1>Carregando…</h1><p>Verificando a sua conta.</p></section>`;
-    if (account.mode === 'user') return viewMyCareers();
+    if (account.mode === 'user') return home.authMode === 'newpass' ? viewNewPassword() : viewMyCareers();
     const local = localGuestCareer();
     return `
     <section class="hero">
@@ -598,20 +661,7 @@
       <p>Crie um tenista, tome as decisões certas e dispute Grand Slams, Masters e o ATP Finals até a aposentadoria.</p>
     </section>
     <div class="home-grid">
-      <section class="panel home-card">
-        <span class="eyebrow">Com conta</span>
-        <h2>Entrar com e-mail</h2>
-        <p class="muted">Suas carreiras ficam salvas na nuvem e você continua de qualquer aparelho. Não precisa de senha: enviamos um link de acesso para o seu e-mail.</p>
-        ${home.sent ? `
-          <div class="end-note">Enviamos um link para <strong>${esc(home.email)}</strong>. Abra o e-mail neste aparelho e toque no link para entrar. Se não chegar em alguns minutos, olhe a caixa de spam.</div>
-          <div class="btn-row"><button class="btn btn-ghost" id="otherEmail">Usar outro e-mail</button></div>`
-        : `<form id="loginForm" class="stack" novalidate>
-            <div class="field"><label for="f-email">E-mail</label>
-              <input class="input" id="f-email" type="email" inputmode="email" autocomplete="email" placeholder="voce@email.com" value="${esc(home.email)}"></div>
-            <button class="btn btn-primary" type="submit" id="sendLink" ${home.sending ? 'disabled' : ''}>${home.sending ? 'Enviando…' : 'Enviar link de acesso'}</button>
-            ${home.err ? `<p class="form-err" role="alert">${esc(home.err)}</p>` : ''}
-          </form>`}
-      </section>
+      <section class="panel home-card">${viewAuthCard()}</section>
       <section class="panel home-card">
         <span class="eyebrow">Sem conta</span>
         <h2>Jogar como convidado</h2>
@@ -658,20 +708,63 @@
     ${body}`;
   }
 
+  // redesenha a tela de login sem apagar o que a pessoa já digitou nos campos de senha
+  function renderAuth() {
+    const ids = ['f-pass', 'f-pass2', 'f-np1', 'f-np2'], vals = {};
+    ids.forEach(id => { const f = document.getElementById(id); if (f) vals[id] = f.value; });
+    render();
+    ids.forEach(id => { const f = document.getElementById(id); if (f && vals[id] != null) f.value = vals[id]; });
+  }
+  function keepEmail() { const f = document.getElementById('f-email'); if (f) home.email = f.value.trim(); }
+  const validEmail = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
   $app.addEventListener('submit', async e => {
-    if (e.target.id !== 'loginForm') return;
+    if (e.target.id === 'newPassForm') {
+      e.preventDefault();
+      const p1 = document.getElementById('f-np1').value, p2 = document.getElementById('f-np2').value;
+      if (p1.length < 8) { home.err = 'A senha precisa ter pelo menos 8 caracteres.'; renderAuth(); return; }
+      if (p1 !== p2) { home.err = 'As duas senhas não são iguais.'; renderAuth(); return; }
+      home.busy = true; home.err = ''; renderAuth();
+      try { await Cloud.updatePassword(p1); home.authMode = 'login'; home.busy = false; loadList(); }
+      catch (err) { home.busy = false; home.err = err.message; renderAuth(); }
+      return;
+    }
+    if (e.target.id !== 'authForm') return;
     e.preventDefault();
     const email = (document.getElementById('f-email').value || '').trim();
-    home.email = email;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { home.err = 'Digite um e-mail válido, como voce@email.com.'; render(); return; }
-    home.sending = true; home.err = ''; render();
-    try { await Cloud.sendLink(email); home.sent = true; } catch (err) { home.err = err.message; }
-    home.sending = false; render();
+    home.email = email; home.err = ''; home.info = '';
+    if (!validEmail(email)) { home.err = 'Digite um e-mail válido, como voce@email.com.'; renderAuth(); return; }
+    if (home.authMode === 'reset') {
+      home.busy = true; renderAuth();
+      try { await Cloud.resetPassword(email); home.info = `Se existir uma conta com <strong>${esc(email)}</strong>, enviamos um link para criar uma senha nova. Abra o e-mail neste aparelho. Se não chegar, olhe a caixa de spam.`; }
+      catch (err) { home.err = err.message; }
+      home.busy = false; renderAuth(); return;
+    }
+    const pass = document.getElementById('f-pass').value;
+    if (pass.length < 8) { home.err = 'A senha precisa ter pelo menos 8 caracteres.'; renderAuth(); return; }
+    if (home.authMode === 'signup' && pass !== document.getElementById('f-pass2').value) { home.err = 'As duas senhas não são iguais.'; renderAuth(); return; }
+    home.busy = true; renderAuth();
+    try {
+      if (home.authMode === 'signup') {
+        const inNow = await Cloud.signUp(email, pass);
+        if (!inNow) { home.authMode = 'login'; home.info = `Conta criada! Enviamos um e-mail para <strong>${esc(email)}</strong>. Confirme pelo link e depois entre com a sua senha.`; }
+      } else await Cloud.signInPassword(email, pass);
+      // ao entrar, onAuth leva para "Minhas carreiras"
+    } catch (err) { home.err = err.message; }
+    home.busy = false; if (account.mode !== 'user') renderAuth();
   });
   $app.addEventListener('click', async e => {
     const b = e.target.closest('button'); if (!b || ui.view !== 'home') return;
     if (b.id === 'guestBtn') return enterGuest();
-    if (b.id === 'otherEmail') { home.sent = false; render(); return; }
+    if (b.id === 'tabLogin' || b.id === 'tabSignup') { home.authMode = b.id === 'tabLogin' ? 'login' : 'signup'; home.err = ''; home.info = ''; keepEmail(); render(); return; }
+    if (b.id === 'forgotBtn') { keepEmail(); home.authMode = 'reset'; home.err = ''; home.info = ''; render(); return; }
+    if (b.id === 'toLogin') { keepEmail(); home.authMode = 'login'; home.err = ''; home.info = ''; render(); return; }
+    if (b.id === 'pwToggle') { keepEmail(); home.showPw = !home.showPw; renderAuth(); document.getElementById('f-pass')?.focus(); return; }
+    if (b.id === 'googleBtn') {
+      home.busy = true; home.err = ''; render();
+      try { await Cloud.signInGoogle(); setTimeout(() => { if (home.busy) { home.busy = false; render(); } }, 8000); }
+      catch (err) { home.busy = false; home.err = err.message; render(); }
+      return;
+    }
     if (b.id === 'signOut') { await Cloud.signOut(); return; }
     if (b.id === 'newFromHome' || b.id === 'newFromHome2') { state = null; draft = freshDraft(); ui = { view: 'create', confirm: null, modal: null, fresh: false }; render(); scrollTo({ top: 0 }); return; }
     if (b.id === 'reloadList') return loadList();
@@ -881,6 +974,7 @@
   function start(data) {
     if (Cloud.enabled) {
       ui.view = 'home'; render();
+      Cloud.providers().then(p => { home.prov = p; if (ui.view === 'home' && account.mode !== 'user') render(); });
       Cloud.init(onAuth).then(user => { home.checking = false; if (user) onAuth(user, 'INITIAL'); else render(); })
         .catch(() => { home.checking = false; render(); });
       return;
@@ -894,6 +988,9 @@
     if (data && data.draft) draft = { ...freshDraft(), ...data.draft };
     render();
   }
+  // quem volta do Google pelo botão "voltar" do navegador não fica com os botões travados
+  addEventListener('pageshow', () => { if (home.busy) { home.busy = false; if (ui.view === 'home') render(); } });
+
   // botão do topo (fora do #app)
   document.getElementById('homeBtn').addEventListener('click', goHome);
   start(null);

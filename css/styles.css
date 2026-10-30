@@ -441,3 +441,15 @@ table.career { border-collapse: separate; border-spacing: 0; width: 100%; min-wi
 .ccard-foot .btn-row .btn, .del-confirm .btn { flex: none; }
 .btn-sm { min-height: 36px; padding: 0 14px; font-size: 14px; }
 .del-confirm { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* login: Google, abas, senha */
+.btn-google { background: #fff; color: #1f1f1f; border-color: #dadce0; gap: 10px; }
+.btn-google:hover { background: #f5f5f5; }
+.or { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.auth-tabs { max-width: 360px; }
+.pw-wrap { position: relative; }
+.pw-wrap .input { padding-right: 96px; }
+.pw-toggle { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); height: 38px; padding: 0 12px; border: 0; border-radius: 9px; background: var(--line); color: var(--fg); font: 600 13px var(--f-body); }
+.linkish { justify-self: start; background: none; border: 0; padding: 4px 0; color: var(--muted); font: 600 14px var(--f-body); text-decoration: underline; text-underline-offset: 3px; }
+.linkish:hover { color: var(--fg); }

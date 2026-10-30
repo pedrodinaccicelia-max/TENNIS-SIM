@@ -14,14 +14,36 @@ Isso cria a tabela `careers` com as regras de segurança: cada jogador só lê, 
 
 > **Estado atual do projeto `rgyraqbvidnzzapdvrhm`:** os scripts 001, 002 e 003 já estão aplicados (os dois últimos aplicados direto pelo conector do Supabase em 29/10/2026). Um projeto novo precisa só do `001_careers.sql`, que já inclui tudo.
 
-## 2. Login por e-mail
+## 2. Formas de login
 
-1. **Authentication > Sign In / Providers**: confirme que **Email** está ativado (vem ativado por padrão).
-2. **Authentication > URL Configuration**:
-   - **Site URL**: o endereço onde o jogo vai ficar no ar. Com GitHub Pages: `https://pedrodinaccicelia-max.github.io/TENNIS-SIM/`
-   - **Redirect URLs**: adicione o mesmo endereço e, para testar no computador, `http://localhost:8000/`
+O jogo oferece **Entrar com Google** e **e-mail e senha**. Ele lê do próprio Supabase o que está ligado: o botão do Google só aparece quando o provedor Google estiver ativado.
 
-O link de acesso que chega por e-mail só funciona se o endereço do jogo estiver nessa lista.
+### Endereços (obrigatório)
+**Authentication > URL Configuration**
+- **Site URL:** `https://pedrodinaccicelia-max.github.io/TENNIS-SIM/`
+- **Redirect URLs:** o mesmo endereço e, para testes no computador, `http://localhost:8000/`
+
+### E-mail e senha
+**Authentication > Sign In / Providers > Email**
+- **Enable Email provider:** ligado.
+- **Confirm email:**
+  - **Desligado (recomendado agora):** a conta é criada e a pessoa entra na hora, sem nenhum e-mail. Não esbarra no limite de 2 e-mails por hora do envio padrão.
+  - **Ligado:** depois de criar a conta, a pessoa precisa clicar no link de confirmação antes de entrar. Só vale a pena com um SMTP próprio configurado.
+- **Minimum password length:** 8 (o jogo já exige 8).
+
+"Esqueci a senha" manda um e-mail com link para criar uma senha nova. Esse e-mail usa o mesmo envio padrão (limitado a poucos por hora); para o público, configure um SMTP próprio.
+
+### Entrar com Google
+1. Acesse <https://console.cloud.google.com> e crie um projeto (ex.: "Tennis Simulator").
+2. **Google Auth Platform > Branding** (ou "Tela de consentimento OAuth"): nome do app, e-mail de suporte e e-mail de contato. Em **Audience**, escolha **External** e depois **Publish app**, para que qualquer pessoa consiga entrar (sem publicar, só os "usuários de teste" conseguem).
+3. **Google Auth Platform > Clients > Create client**:
+   - Tipo: **Web application**
+   - **Authorized JavaScript origins:** `https://pedrodinaccicelia-max.github.io`
+   - **Authorized redirect URIs:** `https://rgyraqbvidnzzapdvrhm.supabase.co/auth/v1/callback`
+4. Copie o **Client ID** e o **Client secret**.
+5. No Supabase: **Authentication > Sign In / Providers > Google**, ative, cole os dois valores e salve.
+
+Pronto: o botão "Entrar com Google" aparece sozinho no jogo. O Client secret fica só no painel do Supabase; não precisa ir para o código.
 
 ## 3. Chave pública (anon)
 
@@ -32,19 +54,19 @@ Essa chave pode ficar no código: a segurança está nas regras do banco. **Nunc
 
 ## 4. Testar
 
-O login não funciona abrindo o `index.html` direto do disco. Use um servidor local:
+O login não funciona abrindo o `index.html` direto do disco. Use o site publicado ou um servidor local:
 
 ```bash
 python -m http.server 8000
 # abra http://localhost:8000
 ```
 
-Digite seu e-mail, abra o link que chegar no mesmo navegador e você cai em "Minhas carreiras".
+Crie uma conta com e-mail e senha (ou use o Google) e você cai em "Minhas carreiras".
 
 ## Para abrir ao público (depois)
 
-- **E-mails:** o envio padrão do Supabase permite poucos e-mails por hora. Para muitos jogadores, configure um SMTP próprio (por exemplo, Resend) em **Authentication > Emails > SMTP Settings**.
-- **Texto do e-mail:** em **Authentication > Emails > Templates > Magic Link** dá para traduzir a mensagem para português.
+- **E-mails:** o envio padrão do Supabase permite cerca de 2 e-mails por hora e só entrega para os e-mails da equipe do projeto. Para confirmação de cadastro e "esqueci a senha" com o público, configure um SMTP próprio em **Authentication > Emails > SMTP Settings** (Gmail com senha de app, Resend ou Brevo).
+- **Texto dos e-mails:** em **Authentication > Emails > Templates** (Confirm signup, Reset password) dá para traduzir as mensagens para português.
 - **Plano grátis:** o projeto pausa depois de cerca de 1 semana sem uso; é só reativar no painel.
 
 ## Como o jogo usa o banco

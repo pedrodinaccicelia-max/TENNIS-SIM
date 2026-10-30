@@ -3,7 +3,8 @@
 O detalhamento de cada versão está nos documentos de [`docs/regras/`](docs/regras/).
 
 ## Contas (em desenvolvimento)
-- Tela inicial com "Entrar com e-mail" (link de acesso, sem senha) ou "Jogar como convidado".
+- Tela inicial com "Entrar com Google", e-mail e senha (Entrar / Criar conta / Esqueci a senha) ou "Jogar como convidado".
+- O botão do Google aparece sozinho quando o provedor estiver ativado no Supabase.
 - "Minhas carreiras": lista com favoritas, continuar, ver resumo e apagar.
 - Salvamento automático na nuvem (Supabase) a cada decisão e temporada, com indicador no topo.
 - Carreira de convidado pode ser levada para a conta ao entrar.

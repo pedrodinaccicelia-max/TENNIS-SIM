@@ -17,7 +17,7 @@ O jogo é um site estático (HTML, CSS e JavaScript puro, sem etapa de build).
 
 Há dois modos de jogo:
 - **Convidado:** a carreira fica salva só no navegador (localStorage).
-- **Com conta:** login por link no e-mail (Supabase) e carreiras salvas na nuvem, com a lista "Minhas carreiras". A configuração está em [`docs/SUPABASE.md`](docs/SUPABASE.md).
+- **Com conta:** entrar com Google ou com e-mail e senha (Supabase) e carreiras salvas na nuvem, com a lista "Minhas carreiras". A configuração está em [`docs/SUPABASE.md`](docs/SUPABASE.md).
 
 ## Estrutura
 

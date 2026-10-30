@@ -12,6 +12,12 @@ const Cloud = (() => {
     if (/email rate limit|over_email_send_rate/i.test(m) || (err && err.code === 'over_email_send_rate_limit')) return 'O servidor atingiu o limite de e-mails de login por hora. Tente de novo mais tarde ou jogue como convidado por enquanto.';
     if (/security purposes|only request this after/i.test(m)) return 'Você acabou de pedir um link. Espere cerca de 1 minuto antes de pedir outro.';
     if (/rate limit|too many/i.test(m)) return 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo.';
+    if (/invalid login credentials/i.test(m)) return 'E-mail ou senha incorretos.';
+    if (/email not confirmed/i.test(m)) return 'Confirme o seu e-mail pelo link que enviamos antes de entrar.';
+    if (/already registered|already been registered|user already exists/i.test(m)) return 'Já existe uma conta com esse e-mail. Use "Entrar" com a sua senha.';
+    if (/password should be|password.*(at least|characters)|weak.?password/i.test(m)) return 'A senha precisa ter pelo menos 8 caracteres.';
+    if (/same password|different from the old/i.test(m)) return 'A nova senha precisa ser diferente da anterior.';
+    if (/provider is not enabled|unsupported provider/i.test(m)) return 'O login com Google ainda não está disponível.';
     if (/invalid.*email|email.*invalid|unable to validate/i.test(m)) return 'Esse e-mail não parece válido. Confira e tente de novo.';
     if (/limite de 200/i.test(m)) return 'Você atingiu o limite de 200 carreiras salvas. Apague alguma para salvar novas.';
     if (/fetch|network|failed to fetch|load failed/i.test(m)) return 'Sem conexão com o servidor. Verifique a internet e tente de novo.';
@@ -31,9 +37,38 @@ const Cloud = (() => {
     return client.auth.getSession().then(({ data }) => (data && data.session ? data.session.user : null));
   }
 
-  async function sendLink(email) {
-    const redirect = location.origin + location.pathname;
-    const { error } = await client.auth.signInWithOtp({ email, options: { emailRedirectTo: redirect } });
+  const here = () => location.origin + location.pathname;
+
+  // Quais formas de login o projeto tem ligadas (lido do próprio Supabase)
+  async function providers() {
+    try {
+      const r = await fetch(cfg.supabaseUrl + '/auth/v1/settings', { headers: { apikey: cfg.supabaseAnonKey } });
+      const j = await r.json();
+      return { google: !!(j.external && j.external.google), email: !(j.external && j.external.email === false), autoconfirm: !!j.mailer_autoconfirm };
+    } catch (e) { return { google: false, email: true, autoconfirm: false }; }
+  }
+  async function signInPassword(email, password) {
+    const { error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(friendly(error));
+  }
+  // devolve true se já entrou direto (confirmação de e-mail desligada) ou false se precisa confirmar
+  async function signUp(email, password) {
+    const { data, error } = await client.auth.signUp({ email, password, options: { emailRedirectTo: here() } });
+    if (error) throw new Error(friendly(error));
+    if (data && data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0)
+      throw new Error('Já existe uma conta com esse e-mail. Use "Entrar" com a sua senha.');
+    return !!(data && data.session);
+  }
+  async function signInGoogle() {
+    const { error } = await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: here() } });
+    if (error) throw new Error(friendly(error));
+  }
+  async function resetPassword(email) {
+    const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: here() });
+    if (error) throw new Error(friendly(error));
+  }
+  async function updatePassword(password) {
+    const { error } = await client.auth.updateUser({ password });
     if (error) throw new Error(friendly(error));
   }
   async function signOut() { await client.auth.signOut(); }
@@ -53,5 +88,5 @@ const Cloud = (() => {
   async function remove(id) { check(await client.from(TABLE).delete().eq('id', id)); }
   async function setFavorite(id, favorite) { check(await client.from(TABLE).update({ favorite }).eq('id', id)); }
 
-  return { enabled, init, sendLink, signOut, list, load, save, remove, setFavorite };
+  return { enabled, init, providers, signInPassword, signUp, signInGoogle, resetPassword, updatePassword, signOut, list, load, save, remove, setFavorite };
 })();

@@ -12,6 +12,8 @@ Enquanto a chave pública não estiver no `js/config.js`, o jogo funciona só no
 
 Isso cria a tabela `careers` com as regras de segurança: cada jogador só lê, cria, altera e apaga as próprias carreiras. Também limita cada jogador a 200 carreiras salvas.
 
+> Se você rodou uma versão anterior do script e o jogo mostra "O banco recusou salvar", rode também [`supabase/migrations/002_grants.sql`](../supabase/migrations/002_grants.sql). Ele libera a tabela para usuários logados (projetos novos do Supabase não fazem isso sozinhos).
+
 ## 2. Login por e-mail
 
 1. **Authentication > Sign In / Providers**: confirme que **Email** está ativado (vem ativado por padrão).

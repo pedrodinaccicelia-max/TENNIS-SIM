@@ -13,7 +13,9 @@ const Cloud = (() => {
     if (/invalid.*email|email.*invalid|unable to validate/i.test(m)) return 'Esse e-mail não parece válido. Confira e tente de novo.';
     if (/limite de 200/i.test(m)) return 'Você atingiu o limite de 200 carreiras salvas. Apague alguma para salvar novas.';
     if (/fetch|network|failed to fetch|load failed/i.test(m)) return 'Sem conexão com o servidor. Verifique a internet e tente de novo.';
-    if (/jwt|not authenticated|permission|policy/i.test(m)) return 'Sua sessão expirou. Entre de novo com o seu e-mail.';
+    if (/42501|permission denied|row-level security/i.test(m) || (err && err.code === '42501')) return 'O banco recusou salvar (permissões da tabela). Avise o administrador do jogo.';
+    if (/PGRST205|42P01|does not exist|could not find the table/i.test(m) || (err && err.code === 'PGRST205')) return 'O banco ainda não está configurado (tabela de carreiras não encontrada).';
+    if (/jwt|not authenticated/i.test(m)) return 'Sua sessão expirou. Entre de novo com o seu e-mail.';
     return 'Algo deu errado ao falar com o servidor. Tente de novo em instantes.';
   }
   const check = ({ data, error }) => { if (error) throw new Error(friendly(error)); return data; };

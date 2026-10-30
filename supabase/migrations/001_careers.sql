@@ -58,6 +58,11 @@ for each row execute function public.careers_limit_per_user();
 -- ---------- segurança: cada jogador só enxerga e mexe nas próprias carreiras ----------
 alter table public.careers enable row level security;
 
+-- libera a tabela para usuários logados (as regras abaixo limitam a cada um as próprias carreiras)
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on table public.careers to authenticated;
+revoke all on table public.careers from anon;
+
 drop policy if exists "careers_select_own" on public.careers;
 create policy "careers_select_own" on public.careers
   for select to authenticated using (user_id = auth.uid());

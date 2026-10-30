@@ -9,7 +9,9 @@ const Cloud = (() => {
   // Mensagens de erro em português, sem expor detalhes técnicos
   function friendly(err) {
     const m = (err && (err.message || err.error_description || String(err))) || '';
-    if (/rate limit|too many|security purposes/i.test(m)) return 'Muitas tentativas seguidas. Espere um minuto e tente de novo.';
+    if (/email rate limit|over_email_send_rate/i.test(m) || (err && err.code === 'over_email_send_rate_limit')) return 'O servidor atingiu o limite de e-mails de login por hora. Tente de novo mais tarde ou jogue como convidado por enquanto.';
+    if (/security purposes|only request this after/i.test(m)) return 'Você acabou de pedir um link. Espere cerca de 1 minuto antes de pedir outro.';
+    if (/rate limit|too many/i.test(m)) return 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo.';
     if (/invalid.*email|email.*invalid|unable to validate/i.test(m)) return 'Esse e-mail não parece válido. Confira e tente de novo.';
     if (/limite de 200/i.test(m)) return 'Você atingiu o limite de 200 carreiras salvas. Apague alguma para salvar novas.';
     if (/fetch|network|failed to fetch|load failed/i.test(m)) return 'Sem conexão com o servidor. Verifique a internet e tente de novo.';

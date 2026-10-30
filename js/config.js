@@ -9,5 +9,5 @@
  */
 window.TENNIS_CONFIG = {
   supabaseUrl: 'https://rgyraqbvidnzzapdvrhm.supabase.co',
-  supabaseAnonKey: '',
+  supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJneXJhcWJ2aWRuenphcGR2cmhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMzMTY0ODIsImV4cCI6MjEwODg5MjQ4Mn0.XGS05jC7nLsT-gewtuFqHDLpQnLXwBfOlY-R4tN3cus',
 };

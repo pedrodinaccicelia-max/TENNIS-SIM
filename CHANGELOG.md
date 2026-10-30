@@ -2,6 +2,12 @@
 
 O detalhamento de cada versão está nos documentos de [`docs/regras/`](docs/regras/).
 
+## Contas (em desenvolvimento)
+- Tela inicial com "Entrar com e-mail" (link de acesso, sem senha) ou "Jogar como convidado".
+- "Minhas carreiras": lista com favoritas, continuar, ver resumo e apagar.
+- Salvamento automático na nuvem (Supabase) a cada decisão e temporada, com indicador no topo.
+- Carreira de convidado pode ser levada para a conta ao entrar.
+
 ## V7
 - Topo da tabela de chance de título recalibrado (OVR 90–99), para que 30+ Grand Slams aconteça em cerca de 0,5% das carreiras.
 - Evento especial **Fenix** (33 a 35 anos, para quem nunca passou de 80 de OVR até os 33; 35% no total da faixa).

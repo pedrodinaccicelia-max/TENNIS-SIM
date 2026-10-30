@@ -18,12 +18,19 @@
       <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="#D9E85A"/><path d="M5 8c6 4 6 12 0 16M27 8c-6 4-6 12 0 16" stroke="#0A111E" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
       Tennis Simulator
     </div>
-    <div class="top-meta" id="topMeta">Simulador de carreira</div>
+    <div class="top-right">
+      <span class="save-state" id="saveState" aria-live="polite"></span>
+      <div class="top-meta" id="topMeta">Simulador de carreira</div>
+      <button class="top-btn" id="homeBtn" hidden>Início</button>
+    </div>
   </header>
   <main id="app"></main>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
 <script src="js/engine.js"></script>
+<script src="js/cloud.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

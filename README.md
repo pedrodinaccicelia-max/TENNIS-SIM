@@ -15,15 +15,20 @@ O jogo é um site estático (HTML, CSS e JavaScript puro, sem etapa de build).
   # depois abra http://localhost:8000
   ```
 
-A carreira em andamento fica salva no navegador (localStorage).
+Há dois modos de jogo:
+- **Convidado:** a carreira fica salva só no navegador (localStorage).
+- **Com conta:** login por link no e-mail (Supabase) e carreiras salvas na nuvem, com a lista "Minhas carreiras". A configuração está em [`docs/SUPABASE.md`](docs/SUPABASE.md).
 
 ## Estrutura
 
 ```
 index.html            Página do jogo
 css/styles.css        Visual (cores, tipografia, layout de PC e celular)
+js/config.js          Endereço e chave pública do Supabase
 js/engine.js          Motor da simulação: OVR, torneios, ranking, eventos, rivais, tags
-js/app.js             Telas e fluxo: criação, painel em etapas, temporada ao vivo, resumo
+js/cloud.js           Login e carreiras na nuvem (Supabase)
+js/app.js             Telas e fluxo: tela inicial, criação, painel em etapas, temporada ao vivo, resumo
+supabase/migrations/  Estrutura do banco (tabela de carreiras e regras de acesso)
 tests/simulacao.js    Simulação em massa para calibrar as probabilidades
 docs/regras/          Documento de regras de cada versão (V3 em diante)
 docs/referencias/     Regras e telas originais que deram início ao projeto
@@ -48,5 +53,5 @@ As regras completas da versão atual estão em [`docs/regras/`](docs/regras/). E
 
 ## Próximos passos
 
-- Contas de jogador (login por e-mail) e carreiras salvas na nuvem com Supabase.
 - Publicação do site (GitHub Pages ou Vercel).
+- SMTP próprio para os e-mails de login e página de privacidade.

@@ -41,8 +41,113 @@
   let ui = { view: 'create', confirm: null, modal: null, fresh: false };
   let draft = freshDraft();
 
+  // ---------- conta (Supabase) ----------
+  // mode: null (ainda não escolheu), 'guest' (salva só no aparelho) ou 'user' (salva na nuvem)
+  let account = { mode: null, user: null };
+  let home = { checking: Cloud.enabled, email: '', sent: false, sending: false, err: '', list: null, listErr: '', loading: false, confirmDel: null, importing: false };
+
   function persist() {
+    if (account.mode === 'user') { if (state) scheduleCloudSave(); return; }
     try { localStorage.setItem(SAVE_KEY, JSON.stringify({ state, view: ui.view })); } catch (e) {}
+  }
+
+  // salvamento na nuvem: agrupa alterações rápidas e salva uma de cada vez
+  let saveTimer = null, saving = false, dirty = false;
+  function rowFor(s) {
+    const st = Engine.careerStats(s);
+    const { cloudId, ...clean } = s;
+    return { name: s.player.name, nat: s.player.nat, status: Engine.careerStatus(st).label, retired: !!s.retired,
+             seasons: s.seasons.length, age: s.age, ovr: s.ovr, majors: st.majors, titles: st.titles,
+             best_rank: s.bestRank, game_version: 7, state: clean };
+  }
+  function scheduleCloudSave(delay = 1200) {
+    dirty = true; setSaveState('pending');
+    clearTimeout(saveTimer); saveTimer = setTimeout(flushCloud, delay);
+  }
+  async function flushCloud() {
+    if (!dirty || !state || account.mode !== 'user') return;
+    if (saving) { clearTimeout(saveTimer); saveTimer = setTimeout(flushCloud, 500); return; }
+    saving = true; dirty = false;
+    const s = state;
+    setSaveState('saving');
+    try {
+      const id = await Cloud.save(s.cloudId, rowFor(s));
+      s.cloudId = id;
+      setSaveState(dirty ? 'pending' : 'saved');
+    } catch (e) {
+      dirty = true; setSaveState('error', e.message);
+      clearTimeout(saveTimer); saveTimer = setTimeout(flushCloud, 8000);
+    } finally { saving = false; }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushCloud(); });
+
+  // indicador no topo: onde a carreira está salva
+  let saveInfo = { kind: '', msg: '' };
+  function setSaveState(kind, msg = '') { saveInfo = { kind, msg }; paintTop(); }
+  function paintTop() {
+    const el = document.getElementById('saveState'), btn = document.getElementById('homeBtn');
+    if (btn) {
+      btn.hidden = !Cloud.enabled || ui.view === 'home';
+      btn.textContent = account.mode === 'user' ? 'Minhas carreiras' : 'Início';
+    }
+    if (!el) return;
+    let txt = '', cls = '';
+    if (ui.view === 'home' || !state) txt = '';
+    else if (account.mode === 'user') {
+      const k = saveInfo.kind;
+      txt = k === 'saving' || k === 'pending' ? 'Salvando…' : k === 'error' ? 'Não salvo: tentando de novo' : 'Salvo na nuvem';
+      cls = k === 'error' ? 'bad' : k === 'saved' || !k ? 'good' : '';
+    } else if (Cloud.enabled) txt = 'Convidado · salvo neste aparelho';
+    el.textContent = txt; el.className = 'save-state ' + cls; el.title = saveInfo.kind === 'error' ? saveInfo.msg : '';
+  }
+
+  function clearLive() {
+    clearTimeout(ui.liveTimer);
+    ui.live = null; ui.chain = null; ui.chainWait = false; ui.modal = null; ui.confirm = null;
+  }
+  function goHome() {
+    flushCloud();
+    clearLive();
+    if (account.mode === 'guest') account = { mode: null, user: null };
+    state = null; ui = { view: 'home', confirm: null, modal: null, fresh: false };
+    render(); scrollTo({ top: 0 });
+    if (account.mode === 'user') loadList();
+  }
+  async function loadList() {
+    home.loading = true; home.listErr = ''; render();
+    try { home.list = await Cloud.list(); } catch (e) { home.listErr = e.message; }
+    home.loading = false; render();
+  }
+  function localGuestCareer() { const sv = loadSave(); return sv && sv.state ? sv : null; }
+  function enterGuest() {
+    account = { mode: 'guest', user: null };
+    const sv = localGuestCareer();
+    if (sv) { state = Engine.migrate(sv.state); ui = { view: sv.view === 'summary' && state.retired ? 'summary' : 'game', confirm: null, modal: state.pendingFinal ? 'rival' : null, fresh: false }; }
+    else { state = null; ui = { view: 'create', confirm: null, modal: null, fresh: false }; }
+    render(); scrollTo({ top: 0 });
+  }
+  async function openCareer(id) {
+    home.loading = true; render();
+    try {
+      const row = await Cloud.load(id);
+      state = Engine.migrate(row.state); state.cloudId = row.id;
+      ui = { view: state.retired ? 'summary' : 'game', confirm: null, modal: state.pendingFinal ? 'rival' : null, fresh: false };
+      saveInfo = { kind: 'saved', msg: '' };
+      home.loading = false; render(); scrollTo({ top: 0 });
+    } catch (e) { home.loading = false; home.listErr = e.message; render(); }
+  }
+  function onAuth(user, event) {
+    home.checking = false;
+    if (user && account.mode !== 'user') {
+      flushCloud(); clearLive();
+      account = { mode: 'user', user }; state = null; home.sent = false; home.err = '';
+      ui = { view: 'home', confirm: null, modal: null, fresh: false };
+      loadList();
+    } else if (!user && account.mode === 'user') {
+      account = { mode: null, user: null }; state = null; home.list = null;
+      ui = { view: 'home', confirm: null, modal: null, fresh: false };
+      render();
+    } else if (ui.view === 'home') render();
   }
   Engine.setSaver(() => persist());
   function loadSave() {
@@ -480,10 +585,128 @@
     ${ui.confirm === 'new' ? '<p class="draw-hint" style="margin-top:10px">A carreira atual será apagada deste aparelho.</p>' : ''}`;
   }
 
+  // ---------- tela inicial: entrar, jogar como convidado, minhas carreiras ----------
+  function fmtDate(iso) { try { return new Date(iso).toLocaleDateString('pt-BR'); } catch (e) { return ''; } }
+  function viewHome() {
+    if (home.checking) return `<section class="hero"><span class="eyebrow">Tennis Simulator</span><h1>Carregando…</h1><p>Verificando a sua conta.</p></section>`;
+    if (account.mode === 'user') return viewMyCareers();
+    const local = localGuestCareer();
+    return `
+    <section class="hero">
+      <span class="eyebrow">Simulador de carreira de tênis</span>
+      <h1>Sua carreira começa aqui</h1>
+      <p>Crie um tenista, tome as decisões certas e dispute Grand Slams, Masters e o ATP Finals até a aposentadoria.</p>
+    </section>
+    <div class="home-grid">
+      <section class="panel home-card">
+        <span class="eyebrow">Com conta</span>
+        <h2>Entrar com e-mail</h2>
+        <p class="muted">Suas carreiras ficam salvas na nuvem e você continua de qualquer aparelho. Não precisa de senha: enviamos um link de acesso para o seu e-mail.</p>
+        ${home.sent ? `
+          <div class="end-note">Enviamos um link para <strong>${esc(home.email)}</strong>. Abra o e-mail neste aparelho e toque no link para entrar. Se não chegar em alguns minutos, olhe a caixa de spam.</div>
+          <div class="btn-row"><button class="btn btn-ghost" id="otherEmail">Usar outro e-mail</button></div>`
+        : `<form id="loginForm" class="stack" novalidate>
+            <div class="field"><label for="f-email">E-mail</label>
+              <input class="input" id="f-email" type="email" inputmode="email" autocomplete="email" placeholder="voce@email.com" value="${esc(home.email)}"></div>
+            <button class="btn btn-primary" type="submit" id="sendLink" ${home.sending ? 'disabled' : ''}>${home.sending ? 'Enviando…' : 'Enviar link de acesso'}</button>
+            ${home.err ? `<p class="form-err" role="alert">${esc(home.err)}</p>` : ''}
+          </form>`}
+      </section>
+      <section class="panel home-card">
+        <span class="eyebrow">Sem conta</span>
+        <h2>Jogar como convidado</h2>
+        <p class="muted">Comece agora mesmo. A carreira fica salva só neste navegador e não aparece em outros aparelhos.</p>
+        ${local ? `<div class="end-note">Carreira neste aparelho: <strong>${esc(local.state.player.name)}</strong>, ${local.state.retired ? 'aposentado' : `${local.state.age} anos, temporada ${local.state.year}`}.</div>` : ''}
+        <div class="btn-row"><button class="btn btn-ghost" id="guestBtn">${local ? 'Continuar como convidado' : 'Jogar sem cadastro'}</button></div>
+      </section>
+    </div>
+    <p class="privacy">Usamos o seu e-mail só para o login e para guardar as suas carreiras. Você pode apagar suas carreiras a qualquer momento.</p>`;
+  }
+
+  function viewMyCareers() {
+    const local = localGuestCareer();
+    const list = (home.list || []).slice().sort((a, b) => (b.favorite - a.favorite) || (b.updated_at > a.updated_at ? 1 : -1));
+    let body;
+    if (home.loading && !home.list) body = `<p class="muted">Carregando as suas carreiras…</p>`;
+    else if (home.listErr) body = `<div class="end-note">${esc(home.listErr)}</div><div class="btn-row"><button class="btn btn-ghost" id="reloadList">Tentar de novo</button></div>`;
+    else if (!list.length) body = `<section class="panel empty-card"><h2>Comece a sua primeira carreira</h2><p class="muted">Cada carreira que você criar fica salva aqui automaticamente, temporada a temporada. Você pode continuar de onde parou em qualquer aparelho.</p><div class="btn-row"><button class="btn btn-primary" id="newFromHome2">Criar carreira</button></div></section>`;
+    else body = `<div class="career-list">${list.map(c => { const n = nation(c.nat);
+      const del = home.confirmDel === c.id;
+      return `<article class="ccard ${c.favorite ? 'fav' : ''}">
+        <div class="ccard-top">
+          <div class="ccard-name"><span class="flag">${flag(n[0])}</span><b>${esc(c.name)}</b></div>
+          <button class="star" data-fav="${c.id}" aria-pressed="${c.favorite}" aria-label="${c.favorite ? 'Tirar dos favoritos' : 'Marcar como favorita'}" title="${c.favorite ? 'Favorita' : 'Marcar como favorita'}">${c.favorite ? '★' : '☆'}</button>
+        </div>
+        <div class="pills"><span class="pill ${c.retired ? 'special' : ''}">${c.retired ? esc(c.status || 'Aposentado') : `Em andamento · ${c.age} anos`}</span><span class="pill">OVR ${c.ovr ?? '–'}</span></div>
+        <div class="ccard-stats">
+          <div><span>Temporadas</span><b>${c.seasons}</b></div><div><span>Slams</span><b>${c.majors}</b></div>
+          <div><span>Títulos</span><b>${c.titles}</b></div><div><span>Melhor rank</span><b>${c.best_rank ? '#' + c.best_rank : '–'}</b></div>
+        </div>
+        <div class="ccard-foot">
+          <span class="muted">Salva em ${fmtDate(c.updated_at)}</span>
+          ${del ? `<span class="del-confirm">Apagar de vez? <button class="btn btn-danger btn-sm" data-delyes="${c.id}">Apagar</button><button class="btn btn-ghost btn-sm" id="delNo">Cancelar</button></span>`
+                : `<span class="btn-row"><button class="btn btn-ghost btn-sm" data-del="${c.id}">Apagar</button><button class="btn btn-primary btn-sm" data-open="${c.id}">${c.retired ? 'Ver resumo' : 'Continuar'}</button></span>`}
+        </div>
+      </article>`; }).join('')}</div>`;
+    return `
+    <section class="home-head">
+      <div><span class="eyebrow">Conectado como ${esc(account.user.email || '')}</span><h1>Minhas carreiras</h1></div>
+      <div class="btn-row"><button class="btn btn-primary" id="newFromHome">Nova carreira</button><button class="btn btn-ghost" id="signOut">Sair</button></div>
+    </section>
+    ${local ? `<section class="panel import-card"><div><strong>Você tem uma carreira de convidado neste aparelho:</strong> ${esc(local.state.player.name)}, ${local.state.retired ? 'aposentado' : `${local.state.age} anos`}. Quer guardá-la na sua conta?</div>
+      <div class="btn-row"><button class="btn btn-primary btn-sm" id="importLocal" ${home.importing ? 'disabled' : ''}>${home.importing ? 'Salvando…' : 'Salvar na minha conta'}</button></div></section>` : ''}
+    ${body}`;
+  }
+
+  $app.addEventListener('submit', async e => {
+    if (e.target.id !== 'loginForm') return;
+    e.preventDefault();
+    const email = (document.getElementById('f-email').value || '').trim();
+    home.email = email;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { home.err = 'Digite um e-mail válido, como voce@email.com.'; render(); return; }
+    home.sending = true; home.err = ''; render();
+    try { await Cloud.sendLink(email); home.sent = true; } catch (err) { home.err = err.message; }
+    home.sending = false; render();
+  });
+  $app.addEventListener('click', async e => {
+    const b = e.target.closest('button'); if (!b || ui.view !== 'home') return;
+    if (b.id === 'guestBtn') return enterGuest();
+    if (b.id === 'otherEmail') { home.sent = false; render(); return; }
+    if (b.id === 'signOut') { await Cloud.signOut(); return; }
+    if (b.id === 'newFromHome' || b.id === 'newFromHome2') { state = null; draft = freshDraft(); ui = { view: 'create', confirm: null, modal: null, fresh: false }; render(); scrollTo({ top: 0 }); return; }
+    if (b.id === 'reloadList') return loadList();
+    if (b.dataset.open) return openCareer(b.dataset.open);
+    if (b.dataset.del) { home.confirmDel = b.dataset.del; render(); return; }
+    if (b.id === 'delNo') { home.confirmDel = null; render(); return; }
+    if (b.dataset.delyes) {
+      const id = b.dataset.delyes; home.confirmDel = null;
+      try { await Cloud.remove(id); home.list = (home.list || []).filter(c => c.id !== id); } catch (err) { home.listErr = err.message; }
+      render(); return;
+    }
+    if (b.dataset.fav) {
+      const c = (home.list || []).find(x => x.id === b.dataset.fav); if (!c) return;
+      c.favorite = !c.favorite; render();
+      try { await Cloud.setFavorite(c.id, c.favorite); } catch (err) { c.favorite = !c.favorite; home.listErr = err.message; render(); }
+      return;
+    }
+    if (b.id === 'importLocal') {
+      const sv = localGuestCareer(); if (!sv) return;
+      home.importing = true; render();
+      try {
+        const st = Engine.migrate(sv.state);
+        await Cloud.save(null, rowFor(st));
+        try { localStorage.removeItem(SAVE_KEY); } catch (err) {}
+        home.importing = false; await loadList();
+      } catch (err) { home.importing = false; home.listErr = err.message; render(); }
+    }
+  });
+
   // ---------- render + eventos ----------
   function render() {
     const meta = document.getElementById('topMeta');
     document.body.dataset.view = (ui.view === 'game' && state) ? 'game' : 'other';
+    if (ui.view === 'home') { $app.innerHTML = viewHome(); meta.textContent = account.mode === 'user' ? 'Minhas carreiras' : 'Simulador de carreira'; paintTop(); return; }
+    paintTop();
     if (ui.view === 'create' || !state) { $app.innerHTML = viewCreate(); meta.textContent = 'Simulador de carreira'; }
     else if (ui.view === 'summary') { $app.innerHTML = viewSummary(); meta.textContent = 'Resumo da carreira'; }
     else { $app.innerHTML = viewGame(); meta.textContent = state.retired ? 'Carreira encerrada' : `Temporada ${state.year}`; }
@@ -521,7 +744,10 @@
     if (b.id === 'retireYes') { Engine.retire(state); ui.confirm = null; ui.view = 'summary'; persist(); render(); scrollTo({ top: 0 }); return; }
     if (b.id === 'toSummary') { ui.view = 'summary'; persist(); render(); scrollTo({ top: 0 }); return; }
     if (b.id === 'backGame') { ui.view = 'game'; ui.confirm = null; persist(); render(); return; }
-    if (b.id === 'newCareer') { ui.confirm = 'new'; render(); return; }
+    if (b.id === 'newCareer') {
+      if (account.mode === 'user') { flushCloud(); clearLive(); state = null; draft = freshDraft(); ui = { view: 'create', confirm: null, modal: null, fresh: false }; render(); scrollTo({ top: 0 }); return; }
+      ui.confirm = 'new'; render(); return;
+    }
     if (b.id === 'newYes') {
       state = null; ui = { view: 'create', confirm: null };
       draft = freshDraft();
@@ -653,6 +879,12 @@
   addEventListener('scroll', hideTip, { passive: true });
 
   function start(data) {
+    if (Cloud.enabled) {
+      ui.view = 'home'; render();
+      Cloud.init(onAuth).then(user => { home.checking = false; if (user) onAuth(user, 'INITIAL'); else render(); })
+        .catch(() => { home.checking = false; render(); });
+      return;
+    }
     const saved = (data && data.state !== undefined) ? data : loadSave();
     if (saved && saved.state) {
       state = Engine.migrate(saved.state);
@@ -662,6 +894,7 @@
     if (data && data.draft) draft = { ...freshDraft(), ...data.draft };
     render();
   }
-  window.claude?.hot?.snapshot?.(() => ({ state, view: ui.view, draft }));
-  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? null);
+  // botão do topo (fora do #app)
+  document.getElementById('homeBtn').addEventListener('click', goHome);
+  start(null);
 })();

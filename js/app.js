@@ -93,13 +93,15 @@
   function setSaveState(kind, msg = '') { saveInfo = { kind, msg }; paintTop(); }
   function paintTop() {
     const el = document.getElementById('saveState'), btn = document.getElementById('homeBtn');
+    const cb = document.getElementById('communityBtn');
+    if (cb) cb.hidden = !Cloud.enabled || ui.view === 'community';
     if (btn) {
       btn.hidden = !Cloud.enabled || ui.view === 'home';
       btn.textContent = account.mode === 'user' ? 'Minhas carreiras' : 'Início';
     }
     if (!el) return;
     let txt = '', cls = '';
-    if (ui.view === 'home' || !state) txt = '';
+    if (ui.view === 'home' || ui.view === 'community' || ui.view === 'shared' || !state) txt = '';
     else if (account.mode === 'user') {
       const k = saveInfo.kind;
       txt = k === 'saving' || k === 'pending' ? 'Salvando…' : k === 'error' ? 'Não salvo: tentando de novo' : 'Salvo na nuvem';
@@ -115,6 +117,8 @@
   function goHome() {
     flushCloud();
     clearLive();
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+    shareUi = { busy: false, err: '', msg: '', confirmOff: false };
     if (account.mode === 'guest') account = { mode: null, user: null };
     state = null; ui = { view: 'home', confirm: null, modal: null, fresh: false };
     render(); scrollTo({ top: 0 });
@@ -122,7 +126,7 @@
   }
   async function loadList() {
     home.loading = true; home.listErr = ''; render();
-    try { home.list = await Cloud.list(); } catch (e) { home.listErr = e.message; }
+    try { home.list = await Cloud.list(); await refreshShareMap(home.list.filter(c => c.retired).map(c => c.id)); } catch (e) { home.listErr = e.message; }
     home.loading = false; render();
   }
   function localGuestCareer() { const sv = loadSave(); return sv && sv.state ? sv : null; }
@@ -138,6 +142,8 @@
     try {
       const row = await Cloud.load(id);
       state = loadState(row.state); state.cloudId = row.id;
+      shareUi = { busy: false, err: '', msg: '', confirmOff: false };
+      if (state.retired) await refreshShareMap([row.id]);
       ui = { view: state.retired ? 'summary' : 'game', confirm: null, modal: state.pendingFinal ? 'rival' : null, fresh: false };
       saveInfo = { kind: 'saved', msg: '' };
       home.loading = false; render(); scrollTo({ top: 0 });
@@ -151,6 +157,11 @@
       account = { mode: 'user', user }; state = null;
       home.authMode = 'newpass'; home.err = ''; home.info = '';
       ui = { view: 'home', confirm: null, modal: null, fresh: false };
+      render(); return;
+    }
+    if (user && account.mode !== 'user' && ['community', 'shared'].includes(ui.view)) {
+      account = { mode: 'user', user }; home.authMode = 'login';
+      Cloud.list().then(l => { home.list = l; return refreshShareMap(l.filter(c => c.retired).map(c => c.id)); }).then(() => render()).catch(() => {});
       render(); return;
     }
     if (user && account.mode !== 'user') {
@@ -741,7 +752,7 @@
       <tbody>${pending}${rows}</tbody></table></div>`;
   }
 
-  function viewTriviaStats(tst) {
+  function viewTriviaStats(tst, shared = false) {
     const bar = (label, m) => m && m.n ? `<div class="tbar"><span class="tbar-l">${label}</span><span class="tbar-t"><i style="width:${Math.round(m.ok / m.n * 100)}%"></i></span><span class="tbar-v">${m.ok}/${m.n} · <b>${pctAcc(m.ok / m.n)}</b></span></div>` : '';
     const roundOrder = ['R1', 'R2', 'R3', 'R16', 'QF', 'SF', 'F', 'RR', 'BONUS'];
     const roundName = { ...Trivia.ROUND_NAME, BONUS: 'Pergunta Bônus' };
@@ -763,7 +774,7 @@
       <section class="panel"><h3>Por rodada</h3>${roundOrder.map(r => bar(roundName[r], tst.byRound[r])).join('') || '<p class="muted">Sem respostas.</p>'}</section>
       <section class="panel"><h3>Por tema</h3>${cats.map(([c, m]) => bar(esc(c), m)).join('') || '<p class="muted">Sem respostas.</p>'}</section>
     </div>
-    ${tst.missed.length ? `<details class="rdetails"><summary><span class="chev" aria-hidden="true">▸</span>Revise as ${tst.missed.length === 40 ? 'últimas 40 perguntas' : tst.missed.length + (tst.missed.length === 1 ? ' pergunta' : ' perguntas')} que você errou</summary>
+    ${tst.missed.length && !shared ? `<details class="rdetails"><summary><span class="chev" aria-hidden="true">▸</span>Revise as ${tst.missed.length === 40 ? 'últimas 40 perguntas' : tst.missed.length + (tst.missed.length === 1 ? ' pergunta' : ' perguntas')} que você errou</summary>
       <div class="missed">${tst.missed.map(m => `<div class="miss"><p>${esc(m.q)}</p><span><b>${esc(m.a)}</b> · ${m.year} · ${m.bonus ? 'Pergunta Bônus' : Trivia.ROUND_NAME[m.round]}${m.timeout ? ' · tempo esgotado' : ''}</span></div>`).join('')}</div></details>` : ''}`;
   }
 
@@ -822,9 +833,219 @@
     }
   });
 
+  // ---------- Comunidade e carreiras compartilhadas (V10) ----------
+  // links: #comunidade (lista) e #c-<id> (resumo de uma carreira compartilhada)
+  const shareMap = {};                      // carreira (nuvem) -> id do compartilhamento
+  let comm = { mode: 'all', order: 'recent', items: [], loading: false, err: '', done: false };
+  let shared = { id: null, row: null, loading: false, err: '', msg: '' };
+  let shareUi = { busy: false, err: '', msg: '', confirmOff: false };
+  const shareLink = id => `${location.origin}${location.pathname}#c-${id}`;
+  const STATUS_KEYS = { Lenda: 'lenda', Superstar: 'superstar', Famoso: 'famoso', Mediano: 'mediano', 'Um pouco abaixo': 'abaixo', Ruim: 'ruim' };
+  const ORDER_LABEL = { recent: 'Mais recentes', majors: 'Mais Grand Slams', titles: 'Mais títulos', rank: 'Melhor ranking', accuracy: 'Melhor acerto (Trivia)' };
+  // nomes ofensivos não vão para a Comunidade (lista básica; o resto fica com as denúncias)
+  const BAD = ['caralho', 'porra', 'merda', 'puta', 'puto', 'putaria', 'buceta', 'boceta', 'piroca', 'viado', 'viadinho', 'bicha', 'sapatao', 'fdp', 'vsf', 'tnc', 'pqp', 'cuzao', 'arrombado', 'foda', 'foder', 'fodido', 'corno', 'nazista', 'nazi', 'hitler', 'fuck', 'fucker', 'shit', 'bitch', 'cunt', 'whore', 'nigger', 'nigga', 'faggot', 'retard', 'mierda', 'pendejo', 'cabron', 'maricon', 'gilipollas'];
+  function badName(name) {
+    const norm = name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[0@]/g, 'o').replace(/[1!]/g, 'i').replace(/3/g, 'e').replace(/4/g, 'a').replace(/\$/g, 's');
+    const tokens = norm.split(/[^a-z]+/).filter(Boolean), joined = tokens.join('');
+    return BAD.some(w => tokens.includes(w) || (w.length >= 5 && joined.includes(w)));
+  }
+
+  function routeFromHash() {
+    if (!Cloud.enabled) return false;
+    const h = location.hash.replace(/^#/, '');
+    const m = /^c-([0-9a-f-]{36})$/i.exec(h);
+    if (m) { openShared(m[1], true); return true; }
+    if (h === 'comunidade') { openCommunity(true); return true; }
+    return false;
+  }
+  function setHash(h) {
+    const url = location.pathname + location.search + (h ? '#' + h : '');
+    if (location.hash.replace(/^#/, '') !== h) history.pushState(null, '', url);
+  }
+  function rememberPrev() { if (!['community', 'shared'].includes(ui.view)) ui.prev = { view: ui.view }; }
+  function leaveCommunity() {
+    const prev = ui.prev; ui.prev = null; setHash('');
+    if (prev && prev.view !== 'home' && (state || prev.view === 'create')) { ui.view = prev.view; render(); scrollTo({ top: 0 }); return; }
+    goHome();
+  }
+  function openCommunity(fromHash) {
+    clearLive(); rememberPrev();
+    ui.view = 'community'; if (!fromHash) setHash('comunidade');
+    render(); scrollTo({ top: 0 });
+    if (!comm.items.length && !comm.loading) loadCommunity(true);
+  }
+  async function loadCommunity(reset) {
+    if (reset) { comm.items = []; comm.done = false; }
+    comm.loading = true; comm.err = ''; if (ui.view === 'community') render();
+    try {
+      const rows = await Cloud.listShares({ mode: comm.mode, order: comm.order, from: comm.items.length, size: 24 });
+      comm.items = comm.items.concat(rows); comm.done = rows.length < 24;
+    } catch (e) { comm.err = e.message; }
+    comm.loading = false; if (ui.view === 'community') render();
+  }
+  async function openShared(id, fromHash) {
+    clearLive(); rememberPrev();
+    shared = { id, row: null, loading: true, err: '', msg: '' };
+    ui.view = 'shared'; ui.confirm = null; if (!fromHash) setHash('c-' + id);
+    render(); scrollTo({ top: 0 });
+    try {
+      const row = await Cloud.getShare(id);
+      if (!row) shared.err = 'Esta carreira não está mais na Comunidade. O dono pode ter tirado do ar.';
+      else shared.row = row;
+    } catch (e) { shared.err = e.message; }
+    shared.loading = false; if (ui.view === 'shared' && shared.id === id) render();
+  }
+  async function refreshShareMap(ids) {
+    try { (await Cloud.sharedFor(ids)).forEach(r => { shareMap[r.career_id] = r.id; }); } catch (e) {}
+  }
+  function shareRow(s) {
+    const st = Engine.careerStats(s), tv = isTrivia(s), tst = tv ? Trivia.stats(s) : null, status = Engine.careerStatus(st);
+    const { cloudId, ...clean } = s;
+    return { career_id: s.cloudId, mode: tv ? 'trivia' : 'full', name: s.player.name, nat: s.player.nat, status: status.label, status_key: status.key,
+      majors: st.majors, titles: st.titles, best_rank: s.bestRank, accuracy: tv && tst.n ? tst.acc : null, seasons: s.seasons.length,
+      first_year: s.seasons.length ? s.seasons[0].year : null, last_year: s.seasons.length ? s.seasons[s.seasons.length - 1].year : null,
+      game_version: 10, state: clean };
+  }
+  async function doShare() {
+    const s = state;
+    shareUi = { busy: true, err: '', msg: '', confirmOff: false }; render();
+    if (badName(s.player.name)) { shareUi = { busy: false, err: 'Esse nome não pode ir para a Comunidade. Crie uma carreira com outro nome para compartilhar.', msg: '', confirmOff: false }; render(); return; }
+    try {
+      // garante que a versão encerrada já está salva na nuvem antes de publicar
+      if (!s.cloudId || dirty || saving) { dirty = true; await flushCloud(); while (saving) await new Promise(r => setTimeout(r, 150)); }
+      shareMap[s.cloudId] = await Cloud.shareCareer(shareRow(s));
+      shareUi = { busy: false, err: '', msg: 'Carreira publicada na Comunidade.', confirmOff: false };
+    } catch (e) { shareUi = { busy: false, err: e.message, msg: '', confirmOff: false }; }
+    render();
+  }
+  async function doUnshare() {
+    const s = state;
+    shareUi = { busy: true, err: '', msg: '', confirmOff: false }; render();
+    try { await Cloud.unshare(s.cloudId); delete shareMap[s.cloudId]; comm.items = comm.items.filter(r => r.career_id !== s.cloudId); shareUi = { busy: false, err: '', msg: 'A carreira saiu da Comunidade.', confirmOff: false }; }
+    catch (e) { shareUi = { busy: false, err: e.message, msg: '', confirmOff: false }; }
+    render();
+  }
+  async function copyLink(text, inputId) {
+    let ok = false;
+    try { await navigator.clipboard.writeText(text); ok = true; } catch (e) {
+      const f = document.getElementById(inputId); if (f) { f.focus(); f.select(); try { ok = document.execCommand('copy'); } catch (er) {} }
+    }
+    return ok;
+  }
+
+  // bloco "Compartilhar" no resumo da sua carreira encerrada
+  function viewShareBox(s) {
+    if (!Cloud.enabled || !s.retired) return '';
+    if (account.mode !== 'user') return `<section class="panel share-box"><div><span class="eyebrow">Comunidade</span><h3>Mostre esta carreira para outros jogadores</h3>
+      <p class="muted">Entre com uma conta para compartilhar carreiras encerradas por link e na página da Comunidade.</p></div>
+      <div class="btn-row"><button class="btn btn-ghost" id="toCommunity2">Ver a Comunidade</button></div></section>`;
+    const sid = s.cloudId && shareMap[s.cloudId];
+    const note = shareUi.err ? `<p class="form-err" role="alert">${esc(shareUi.err)}</p>` : shareUi.msg ? `<p class="share-ok">${esc(shareUi.msg)}</p>` : '';
+    if (!sid) return `<section class="panel share-box"><div><span class="eyebrow">Comunidade</span><h3>Compartilhar esta carreira</h3>
+      <p class="muted">Gera um link com o resumo completo e coloca a carreira na página da Comunidade. Você pode tirar do ar quando quiser.</p>${note}</div>
+      <div class="btn-row"><button class="btn btn-primary" id="shareBtn" ${shareUi.busy ? 'disabled' : ''}>${shareUi.busy ? 'Publicando…' : 'Compartilhar na Comunidade'}</button></div></section>`;
+    const link = shareLink(sid);
+    return `<section class="panel share-box on"><div><span class="eyebrow">Comunidade · publicada</span><h3>Esta carreira está na Comunidade</h3>
+      <div class="link-row"><input class="input" id="shareLinkInput" readonly value="${esc(link)}" aria-label="Link da carreira"><button class="btn btn-primary btn-sm" id="copyShare">Copiar link</button></div>${note}</div>
+      <div class="btn-row">
+        <button class="btn btn-ghost btn-sm" data-share="${sid}">Ver como os outros veem</button>
+        ${shareUi.confirmOff ? `<button class="btn btn-danger btn-sm" id="unshareYes" ${shareUi.busy ? 'disabled' : ''}>Sim, tirar da Comunidade</button><button class="btn btn-ghost btn-sm" id="unshareNo">Cancelar</button>`
+          : `<button class="btn btn-ghost btn-sm" id="unshareBtn">Tirar da Comunidade</button>`}
+      </div></section>`;
+  }
+
+  function commCard(r) {
+    const n = nation(r.nat), tv = r.mode === 'trivia', key = r.status_key || STATUS_KEYS[r.status] || 'mediano';
+    return `<article class="ccard comm-card ${tv ? 'is-trivia' : ''}">
+      <div class="ccard-top"><div class="ccard-name"><span class="flag">${flag(n[0])}</span><b>${esc(r.name)}</b></div></div>
+      <div class="pills"><span class="pill ${tv ? 'trivia' : ''}">${tv ? 'Trivia' : 'FULL Sim'}</span><span class="pill st-pill st-${key}">${esc(r.status || '')}</span>${r.first_year ? `<span class="pill">${r.first_year}–${r.last_year}</span>` : ''}</div>
+      <div class="ccard-stats">
+        <div><span>Slams</span><b>${r.majors}</b></div><div><span>Títulos</span><b>${r.titles}</b></div>
+        <div><span>Melhor rank</span><b>${r.best_rank ? '#' + r.best_rank : '–'}</b></div>
+        ${tv ? `<div><span>Acerto</span><b>${r.accuracy != null ? Math.round(r.accuracy * 100) + '%' : '–'}</b></div>` : `<div><span>Temporadas</span><b>${r.seasons}</b></div>`}
+      </div>
+      <div class="ccard-foot"><span class="muted">Compartilhada em ${fmtDate(r.created_at)}</span><button class="btn btn-primary btn-sm" data-share="${r.id}">Ver carreira</button></div>
+    </article>`;
+  }
+  function viewCommunity() {
+    const orders = Object.keys(ORDER_LABEL).filter(k => k !== 'accuracy' || comm.mode !== 'full');
+    let body;
+    if (comm.err && !comm.items.length) body = `<div class="end-note">${esc(comm.err)}</div><div class="btn-row"><button class="btn btn-ghost" id="commReload">Tentar de novo</button></div>`;
+    else if (!comm.items.length && comm.loading) body = `<p class="muted">Carregando carreiras…</p>`;
+    else if (!comm.items.length) body = `<section class="panel empty-card"><h2>Nenhuma carreira por aqui ainda</h2><p class="muted">Quando uma carreira chega ao fim, o resumo ganha o botão "Compartilhar na Comunidade". As carreiras compartilhadas aparecem nesta página.</p></section>`;
+    else body = `<div class="career-list">${comm.items.map(commCard).join('')}</div>
+      ${comm.done ? '' : `<div class="btn-row" style="margin-top:16px;justify-content:center"><button class="btn btn-ghost" id="commMore" ${comm.loading ? 'disabled' : ''}>${comm.loading ? 'Carregando…' : 'Carregar mais'}</button></div>`}`;
+    return `
+    <section class="home-head comm-head">
+      <div><span class="eyebrow">Comunidade</span><h1>Carreiras da comunidade</h1>
+        <p class="muted">Carreiras encerradas que os jogadores compartilharam. Abra uma para ver o resumo completo.</p></div>
+      <div class="btn-row"><button class="btn btn-ghost" id="commBack">${ui.prev && state && ui.prev.view !== 'home' ? 'Voltar para a carreira' : 'Voltar'}</button></div>
+    </section>
+    <div class="comm-filters">
+      <div class="seg" role="radiogroup" aria-label="Modo">${[['all', 'Todas'], ['full', 'FULL Sim'], ['trivia', 'Trivia']].map(([k, l]) => `<button data-cmode="${k}" aria-pressed="${comm.mode === k}">${l}</button>`).join('')}</div>
+      <label class="comm-order"><span class="label">Ordenar por</span>
+        <select class="input" id="commOrder">${orders.map(k => `<option value="${k}" ${comm.order === k ? 'selected' : ''}>${ORDER_LABEL[k]}</option>`).join('')}</select></label>
+    </div>
+    ${body}`;
+  }
+  function viewShared() {
+    if (shared.loading) return `<section class="hero"><span class="eyebrow">Comunidade</span><h1>Carregando…</h1><p>Abrindo a carreira compartilhada.</p></section>`;
+    if (shared.err || !shared.row) return `<section class="hero"><span class="eyebrow">Comunidade</span><h1>Carreira não encontrada</h1><p>${esc(shared.err || 'Esta carreira não está disponível.')}</p></section>
+      <div class="btn-row"><button class="btn btn-primary" id="toCommunity2">Ver a Comunidade</button><button class="btn btn-ghost" id="sharedNew">Criar minha carreira</button></div>`;
+    return viewSummary(shared.row.state, { shared: true, row: shared.row });
+  }
+  function sharedActions(row) {
+    const link = shareLink(row.id), mine = account.mode === 'user' && shareMap[row.career_id] === row.id;
+    const note = shared.msg ? `<p class="share-ok">${esc(shared.msg)}</p>` : '';
+    return `<section class="panel share-box shared-view">
+      <div><span class="eyebrow">Carreira compartilhada · ${row.mode === 'trivia' ? 'Trivia' : 'FULL Sim'} · ${fmtDate(row.created_at)}</span>
+        <div class="link-row"><input class="input" id="sharedLinkInput" readonly value="${esc(link)}" aria-label="Link desta carreira"><button class="btn btn-primary btn-sm" id="copyShared">Copiar link</button></div>${note}</div>
+      <div class="btn-row">
+        <button class="btn btn-ghost btn-sm" id="toCommunity2">Ver a Comunidade</button>
+        <button class="btn btn-ghost btn-sm" id="sharedNew">Criar minha carreira</button>
+        ${account.mode === 'user' && !mine ? (ui.confirm === 'report' ? `<button class="btn btn-danger btn-sm" id="reportYes">Confirmar denúncia</button><button class="btn btn-ghost btn-sm" id="reportNo">Cancelar</button>` : `<button class="btn btn-ghost btn-sm report-btn" id="reportBtn">Denunciar</button>`) : ''}
+      </div>
+      ${ui.confirm === 'report' ? '<p class="muted" style="font-size:13px">Denuncie nomes ofensivos ou carreiras impróprias. Com 3 denúncias, a carreira sai da Comunidade até ser revisada.</p>' : ''}
+    </section>`;
+  }
+
+  const COMM_IDS = new Set(['communityBtn', 'toCommunity2', 'commBack', 'commMore', 'commReload', 'sharedNew', 'copyShared', 'copyShare',
+    'reportBtn', 'reportNo', 'reportYes', 'shareBtn', 'unshareBtn', 'unshareNo', 'unshareYes']);
+  async function communityClick(b) {
+    if (b.id === 'communityBtn' || b.id === 'toCommunity2') { openCommunity(false); return true; }
+    if (b.dataset.share) { openShared(b.dataset.share, false); return true; }
+    if (b.id === 'commBack') { leaveCommunity(); return true; }
+    if (b.dataset.cmode) { comm.mode = b.dataset.cmode; if (comm.mode === 'full' && comm.order === 'accuracy') comm.order = 'recent'; loadCommunity(true); return true; }
+    if (b.id === 'commMore') { loadCommunity(false); return true; }
+    if (b.id === 'commReload') { loadCommunity(true); return true; }
+    if (b.id === 'sharedNew') { setHash(''); ui.prev = null; if (account.mode === 'user') { flushCloud(); state = null; draft = freshDraft(); ui.view = 'create'; render(); scrollTo({ top: 0 }); } else goHome(); return true; }
+    if (b.id === 'copyShared' || b.id === 'copyShare') {
+      const isShared = b.id === 'copyShared', link = isShared ? shareLink(shared.row.id) : shareLink(shareMap[state.cloudId]);
+      const ok = await copyLink(link, isShared ? 'sharedLinkInput' : 'shareLinkInput');
+      b.textContent = ok ? 'Link copiado' : 'Selecione e copie'; setTimeout(() => { if (b.isConnected) b.textContent = 'Copiar link'; }, 2000);
+      return true;
+    }
+    if (b.id === 'reportBtn') { ui.confirm = 'report'; render(); return true; }
+    if (b.id === 'reportNo') { ui.confirm = null; render(); return true; }
+    if (b.id === 'reportYes') {
+      ui.confirm = null;
+      try { await Cloud.report(shared.row.id, ''); shared.msg = 'Obrigado. A denúncia foi registrada.'; } catch (e) { shared.msg = e.message; }
+      render(); return true;
+    }
+    if (b.id === 'shareBtn') { doShare(); return true; }
+    if (b.id === 'unshareBtn') { shareUi.confirmOff = true; shareUi.err = ''; shareUi.msg = ''; render(); return true; }
+    if (b.id === 'unshareNo') { shareUi.confirmOff = false; render(); return true; }
+    if (b.id === 'unshareYes') { doUnshare(); return true; }
+    return false;
+  }
+  $app.addEventListener('change', e => {
+    if (e.target.id === 'commOrder') { comm.order = e.target.value; if (comm.order === 'accuracy' && comm.mode === 'full') comm.mode = 'all'; loadCommunity(true); }
+  });
+  addEventListener('hashchange', () => { if (!routeFromHash() && ['community', 'shared'].includes(ui.view)) leaveCommunity(); });
+
   // ---------- resumo ----------
-  function viewSummary() {
-    const s = state, p = s.player, n = nation(p.nat);
+  function viewSummary(s = state, opt = {}) {
+    const p = s.player, n = nation(p.nat), sh = !!opt.shared;
     const st = Engine.careerStats(s);
     const status = Engine.careerStatus(st);
     const first = s.seasons[0], last = s.seasons[s.seasons.length - 1];
@@ -839,6 +1060,7 @@
         <div class="tags">${tags.length ? tags.map(t => `<button class="tagchip k-${t.kind}" data-desc="${esc(t.desc)}" aria-label="${esc(t.name)}: ${esc(t.desc)}">${esc(t.name)}</button>`).join('') : '<span class="muted">Nenhuma tag conquistada</span>'}</div></div>
       <p class="muted">${esc(s.retireReason || '')}</p>
     </section>
+    ${sh ? sharedActions(opt.row) : viewShareBox(s)}
     <div class="big-stats">
       <div><span>Títulos</span><b>${st.titles}</b></div>
       <div><span>Grand Slams</span><b>${st.majors}</b></div>
@@ -858,7 +1080,7 @@
       <div class="years">${x.years.length ? x.years.map(y => `<span class="yr ${y.w ? 'w' : 'f'}" title="${y.w ? 'Campeão' : 'Vice'} em ${y.y}">${y.y}</span>`).join('') : '<span class="muted" style="font-size:13px">Nenhuma final</span>'}</div>
     </div>`; }).join('')}</div>
 
-    ${tv ? viewTriviaStats(tst) : ''}
+    ${tv ? viewTriviaStats(tst, sh) : ''}
     ${!tv && s.rival ? `<h2 class="section-title">Rivalidade</h2>
     <div class="rival-card"><span class="flag">${flag(rivalNation(s.rival)[0])}</span><div style="flex:1;min-width:0"><div class="rival-name">${RIVALS[s.rival].name}</div><span class="muted">Finais de Grand Slam contra o rival</span></div><div class="slam-titles" style="font-size:44px">${s.rivalRecord.w}-${s.rivalRecord.l}</div></div>
     ${(s.rivalLog || []).length ? `<details class="rdetails"><summary><span class="chev" aria-hidden="true">▸</span>Ver as ${s.rivalLog.length} ${s.rivalLog.length === 1 ? 'final' : 'finais'} de Grand Slam contra ${RIVALS[s.rival].name.split(' ').slice(-1)[0]}</summary><div class="rfinals">${s.rivalLog.map(f => { const t = T.find(x => x.id === f.tid);
@@ -873,13 +1095,13 @@
       <tbody>${masters.map(t => { const x = st.per[t.id]; return `<tr><td><span class="tname">${court(t.surface)}${t.name}</span></td><td><b>${x.titles}</b></td><td>${x.finalsW}-${x.finalsL}</td><td>${x.wins}-${x.losses}</td></tr>`; }).join('')}</tbody></table>
     </section>
 
-    <div class="btn-row" style="margin-top:24px">
+    ${sh ? `<div class="btn-row" style="margin-top:24px"><button class="btn btn-primary" id="toCommunity2">Ver mais carreiras da Comunidade</button><button class="btn btn-ghost" id="sharedNew">Criar minha carreira</button></div>` : `<div class="btn-row" style="margin-top:24px">
       <button class="btn btn-ghost" id="backGame">Voltar para a carreira</button>
       ${ui.confirm === 'new'
         ? `<button class="btn btn-danger" id="newYes">Apagar e criar nova</button>`
         : `<button class="btn btn-primary" id="newCareer">Criar nova carreira</button>`}
     </div>
-    ${ui.confirm === 'new' ? '<p class="draw-hint" style="margin-top:10px">A carreira atual será apagada deste aparelho.</p>' : ''}`;
+    ${ui.confirm === 'new' ? '<p class="draw-hint" style="margin-top:10px">A carreira atual será apagada deste aparelho.</p>' : ''}`}`;
   }
 
   // ---------- tela inicial: entrar, jogar como convidado, minhas carreiras ----------
@@ -973,7 +1195,7 @@
           <div class="ccard-name"><span class="flag">${flag(n[0])}</span><b>${esc(c.name)}</b></div>
           <button class="star" data-fav="${c.id}" aria-pressed="${c.favorite}" aria-label="${c.favorite ? 'Tirar dos favoritos' : 'Marcar como favorita'}" title="${c.favorite ? 'Favorita' : 'Marcar como favorita'}">${c.favorite ? '★' : '☆'}</button>
         </div>
-        <div class="pills"><span class="pill ${c.mode === 'trivia' ? 'trivia' : ''}">${c.mode === 'trivia' ? 'Trivia' : 'FULL Sim'}</span><span class="pill ${c.retired ? 'special' : ''}">${c.retired ? esc(c.status || 'Aposentado') : `Em andamento · ${c.age} anos`}</span><span class="pill">${c.mode === 'trivia' ? `Acerto ${c.accuracy != null ? Math.round(c.accuracy * 100) + '%' : '–'}` : `OVR ${c.ovr ?? '–'}`}</span></div>
+        <div class="pills"><span class="pill ${c.mode === 'trivia' ? 'trivia' : ''}">${c.mode === 'trivia' ? 'Trivia' : 'FULL Sim'}</span>${shareMap[c.id] ? '<span class="pill shared-pill">Na Comunidade</span>' : ''}<span class="pill ${c.retired ? 'special' : ''}">${c.retired ? esc(c.status || 'Aposentado') : `Em andamento · ${c.age} anos`}</span><span class="pill">${c.mode === 'trivia' ? `Acerto ${c.accuracy != null ? Math.round(c.accuracy * 100) + '%' : '–'}` : `OVR ${c.ovr ?? '–'}`}</span></div>
         <div class="ccard-stats">
           <div><span>Temporadas</span><b>${c.seasons}</b></div><div><span>Slams</span><b>${c.majors}</b></div>
           <div><span>Títulos</span><b>${c.titles}</b></div><div><span>Melhor rank</span><b>${c.best_rank ? '#' + c.best_rank : '–'}</b></div>
@@ -1084,10 +1306,13 @@
   function render() {
     const meta = document.getElementById('topMeta');
     document.body.dataset.view = (ui.view === 'game' && state) ? (isTrivia(state) ? 'trivia-game' : 'game') : 'other';
-    document.body.dataset.mode = isTrivia(state) && ui.view !== 'home' ? 'trivia' : 'full';
+    document.body.dataset.mode = isTrivia(state) && ['game', 'summary', 'create'].includes(ui.view) ? 'trivia' : 'full';
     stopTriviaClock();
+    document.title = 'Tennis Simulator';
     if (ui.view === 'home') { $app.innerHTML = viewHome(); meta.textContent = account.mode === 'user' ? 'Minhas carreiras' : 'Simulador de carreira'; paintTop(); return; }
     paintTop();
+    if (ui.view === 'community') { $app.innerHTML = viewCommunity(); meta.textContent = 'Comunidade'; return; }
+    if (ui.view === 'shared') { $app.innerHTML = viewShared(); meta.textContent = 'Carreira compartilhada'; document.title = shared.row ? `${shared.row.name} · Tennis Simulator` : 'Tennis Simulator'; return; }
     if (ui.view === 'create' || !state) { $app.innerHTML = viewCreate(); meta.textContent = 'Simulador de carreira'; }
     else if (ui.view === 'summary') { $app.innerHTML = viewSummary(); meta.textContent = 'Resumo da carreira'; }
     else { $app.innerHTML = viewGame(); meta.textContent = (isTrivia(state) ? 'Trivia · ' : '') + (state.retired ? 'Carreira encerrada' : `Temporada ${state.year}`); }
@@ -1119,6 +1344,7 @@
       state = Engine.newCareer({ name: draft.name.trim(), nat: draft.nat, hand: draft.hand, backhand: draft.backhand, exp: draft.exp, style: draft.style }, draft.ovr, draft.age);
       ui.view = 'game'; ui.confirm = null; persist(); render(); scrollTo({ top: 0 }); return;
     }
+    if (b.dataset.share || b.dataset.cmode || COMM_IDS.has(b.id)) { communityClick(b); return; }
     if (isTrivia(state) && triviaClick(b)) return;
     if (b.dataset.ev !== undefined) { Engine.resolveEvent(state, b.dataset.ev === '1'); persist(); render(); return; }
     if (b.id === 'simBtn') { if (state.awaitingAdvance) return; ui.confirm = null; ui.chain = state.player.exp === 'express' ? { left: 3, total: 3, skip: false, years: [] } : null; playOn(); return; }
@@ -1269,9 +1495,11 @@
 
   function start(data) {
     if (Cloud.enabled) {
-      ui.view = 'home'; render();
+      ui.view = 'home';
+      const ready = Cloud.init(onAuth);          // cria o cliente na hora; a sessão chega depois
+      if (!routeFromHash()) render();
       Cloud.providers().then(p => { home.prov = p; if (ui.view === 'home' && account.mode !== 'user') render(); });
-      Cloud.init(onAuth).then(user => { home.checking = false; if (user) onAuth(user, 'INITIAL'); else render(); })
+      ready.then(user => { home.checking = false; if (user) onAuth(user, 'INITIAL'); else if (ui.view === 'home') render(); })
         .catch(() => { home.checking = false; render(); });
       return;
     }
@@ -1289,5 +1517,6 @@
 
   // botão do topo (fora do #app)
   document.getElementById('homeBtn').addEventListener('click', goHome);
+  document.getElementById('communityBtn').addEventListener('click', () => openCommunity(false));
   start(null);
 })();

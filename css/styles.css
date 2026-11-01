@@ -579,3 +579,34 @@ body[data-mode="trivia"] .tvivo { width: 100%; max-width: 780px; justify-self: c
 .ccard.is-trivia .pill.trivia { background: var(--trivia); color: #062322; border-color: var(--trivia); }
 .ccard.is-trivia.fav { border-color: var(--gold); }
 .tq-path i.lost { background: color-mix(in srgb, var(--bad) 20%, var(--panel-2)); color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+
+/* ===== V10: Comunidade e carreiras compartilhadas ===== */
+.share-box { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px 20px; margin-bottom: 16px; border-color: color-mix(in srgb, var(--trivia) 35%, var(--line)); }
+.share-box > div:first-child { display: grid; gap: 6px; flex: 1 1 360px; min-width: 0; }
+.share-box h3 { font-size: 22px; }
+.share-box .btn-row { flex: 0 1 auto; }
+.share-box .btn-row .btn { flex: none; }
+.share-box.on { border-color: var(--trivia); background: linear-gradient(120deg, color-mix(in srgb, var(--trivia) 10%, var(--panel)), var(--panel)); }
+.share-box.shared-view { border-color: var(--line); background: var(--panel); }
+.link-row { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.link-row .input { flex: 1; min-width: 0; height: 40px; font-size: 14px; font-family: var(--f-data); }
+.link-row .btn { flex: none; }
+.share-ok { color: var(--good); font-size: 14px; font-weight: 600; }
+.pill.shared-pill { border-color: var(--trivia); color: var(--trivia); }
+.pill.st-pill { border-color: currentColor; }
+.comm-head { align-items: flex-start; }
+.comm-head > div:first-child { display: grid; gap: 8px; max-width: 640px; }
+.comm-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 16px; margin-bottom: 16px; }
+.comm-filters .seg { min-width: min(100%, 340px); }
+.comm-order { display: grid; gap: 6px; }
+.comm-order .label { font: 600 13px var(--f-data); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.comm-order select { height: 52px; padding: 0 12px; min-width: 220px; }
+.comm-card .ccard-name b { white-space: normal; }
+.report-btn { color: var(--muted); }
+@media (max-width: 520px) { .link-row { flex-wrap: wrap; } .link-row .btn { width: 100%; } .comm-order select { min-width: 0; width: 100%; } .comm-order { flex: 1 1 100%; } }
+@media (max-width: 520px) {
+  .top { flex-wrap: wrap; row-gap: 10px; }
+  .brand { font-size: 21px; }
+  .top-right { margin-left: auto; gap: 6px; }
+  .top-btn { height: 32px; padding: 0 11px; font-size: 13px; }
+}

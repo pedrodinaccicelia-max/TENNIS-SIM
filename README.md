@@ -58,6 +58,7 @@ As regras completas da versão atual estão em [`docs/regras/`](docs/regras/). E
 - **Play Style:** bônus e penalidades por superfície (rápida, saibro, grama).
 - **Eventos:** decisões com odds visíveis, eventos especiais por idade e conquistas, e rivais com finais de Grand Slam decididas pela sua postura.
 - **Resumo da carreira:** status (de Ruim a Lenda), tags de conquistas e o histórico completo.
+- **Comunidade:** carreiras encerradas podem ser compartilhadas por link e aparecem na página Comunidade.
 - **Trivia:** cerca de 2.300 perguntas em 4 níveis de dificuldade, tempo de 30 s na 1ª rodada até 10 s na final, Pergunta Bônus (3 vitórias garantidas ou 2 derrotas), estreia aos 19 e aposentadoria aos 38 anos, e estatísticas de acerto no resumo.
 
 ## Próximos passos

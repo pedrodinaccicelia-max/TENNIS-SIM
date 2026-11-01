@@ -2,6 +2,14 @@
 
 O detalhamento de cada versão está nos documentos de [`docs/regras/`](docs/regras/).
 
+## V10: Comunidade
+- Carreiras encerradas (aposentadas) podem ser compartilhadas: o resumo ganha o bloco "Compartilhar na Comunidade", com link próprio e opção de tirar do ar.
+- Página **Comunidade** (botão no topo e link `#comunidade`): carreiras compartilhadas dos dois modos, com filtro por modo e ordem (mais recentes, mais Grand Slams, mais títulos, melhor ranking, melhor acerto no Trivia).
+- Link da carreira (`#c-…`) abre o resumo completo para qualquer pessoa, mesmo sem login. A revisão das perguntas erradas do Trivia fica de fora.
+- Moderação: nomes ofensivos não são publicados, quem está logado pode denunciar e, com 3 denúncias, a carreira sai da Comunidade.
+- "Minhas carreiras" mostra o selo "Na Comunidade". Imagem e texto de prévia para quando o link do jogo é colado no WhatsApp ou numa rede social.
+- Supabase: tabelas `shared_careers` e `share_reports` (migração 005).
+
 ## V9: Trivia mais direto
 - Layout vertical no Trivia: cartão do jogador no topo, painel da pergunta centralizado e a tabela temporada a temporada embaixo (o FULL Sim não mudou).
 - No PC, as 4 alternativas ficam em duas colunas; a trilha das rodadas marca em vermelho a rodada em que você caiu.

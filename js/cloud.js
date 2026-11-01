@@ -23,6 +23,7 @@ const Cloud = (() => {
     if (/fetch|network|failed to fetch|load failed/i.test(m)) return 'Sem conexão com o servidor. Verifique a internet e tente de novo.';
     if (/42501|permission denied|row-level security/i.test(m) || (err && err.code === '42501')) return 'O banco recusou salvar (permissões da tabela). Avise o administrador do jogo.';
     if (/PGRST205|42P01|does not exist|could not find the table/i.test(m) || (err && err.code === 'PGRST205')) return 'O banco ainda não está configurado (tabela de carreiras não encontrada).';
+    if (/23505|duplicate key/i.test(m) || (err && err.code === '23505')) return 'Esta carreira já está na Comunidade.';
     if (/jwt|not authenticated/i.test(m)) return 'Sua sessão expirou. Entre de novo com o seu e-mail.';
     return 'Algo deu errado ao falar com o servidor. Tente de novo em instantes.';
   }
@@ -88,5 +89,49 @@ const Cloud = (() => {
   async function remove(id) { check(await client.from(TABLE).delete().eq('id', id)); }
   async function setFavorite(id, favorite) { check(await client.from(TABLE).update({ favorite }).eq('id', id)); }
 
-  return { enabled, init, providers, signInPassword, signUp, signInGoogle, resetPassword, updatePassword, signOut, list, load, save, remove, setFavorite };
+  // ---------- Comunidade (V10) ----------
+  const SHARES = 'shared_careers';
+  const SHARE_COLS = 'id,career_id,mode,name,nat,status,status_key,majors,titles,best_rank,accuracy,seasons,first_year,last_year,created_at';
+  const ORDER = {
+    recent:   [['created_at', false]],
+    majors:   [['majors', false], ['titles', false], ['created_at', false]],
+    titles:   [['titles', false], ['majors', false], ['created_at', false]],
+    rank:     [['best_rank', true], ['majors', false], ['created_at', false]],
+    accuracy: [['accuracy', false], ['majors', false], ['created_at', false]],
+  };
+  async function shareCareer(row) {
+    const { data, error } = await client.from(SHARES).insert(row).select('id').single();
+    if (error) {
+      if (error.code === '42501' || /row-level security/i.test(error.message || '')) throw new Error('Só carreiras encerradas e salvas na sua conta podem ser compartilhadas. Espere o "Salvo na nuvem" e tente de novo.');
+      throw new Error(friendly(error));
+    }
+    return data.id;
+  }
+  async function unshare(careerId) { check(await client.from(SHARES).delete().eq('career_id', careerId)); }
+  async function getShare(id) {
+    const { data, error } = await client.from(SHARES).select(SHARE_COLS + ',state').eq('id', id).maybeSingle();
+    if (error) throw new Error(/invalid input syntax/i.test(error.message || '') ? 'Link de carreira inválido.' : friendly(error));
+    return data;
+  }
+  async function listShares({ mode = 'all', order = 'recent', from = 0, size = 24 } = {}) {
+    let q = client.from(SHARES).select(SHARE_COLS);
+    if (mode !== 'all') q = q.eq('mode', mode);
+    if (order === 'accuracy') q = q.not('accuracy', 'is', null);
+    if (order === 'rank') q = q.not('best_rank', 'is', null);
+    (ORDER[order] || ORDER.recent).forEach(([col, asc]) => { q = q.order(col, { ascending: asc, nullsFirst: false }); });
+    return check(await q.range(from, from + size - 1));
+  }
+  async function sharedFor(careerIds) {
+    if (!careerIds.length) return [];
+    return check(await client.from(SHARES).select('id,career_id').in('career_id', careerIds));
+  }
+  async function report(shareId, reason) {
+    const { error } = await client.from('share_reports').insert({ share_id: shareId, reason: reason || null });
+    if (!error) return;
+    if (error.code === '23505' || /duplicate/i.test(error.message || '')) throw new Error('Você já denunciou esta carreira.');
+    if (error.code === '42501' || /row-level security/i.test(error.message || '')) throw new Error('Você não pode denunciar a própria carreira.');
+    throw new Error(friendly(error));
+  }
+
+  return { shareCareer, unshare, getShare, listShares, sharedFor, report, enabled, init, providers, signInPassword, signUp, signInGoogle, resetPassword, updatePassword, signOut, list, load, save, remove, setFavorite };
 })();

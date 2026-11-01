@@ -12,7 +12,7 @@ Enquanto a chave pública não estiver no `js/config.js`, o jogo funciona só no
 
 Isso cria a tabela `careers` com as regras de segurança: cada jogador só lê, cria, altera e apaga as próprias carreiras. Também limita cada jogador a 200 carreiras salvas.
 
-> **Estado atual do projeto `rgyraqbvidnzzapdvrhm`:** os scripts 001 a 004 já estão aplicados (002 e 003 pelo conector do Supabase em 29/10/2026; 004, do modo Trivia, em 01/11/2026). Um projeto novo precisa do `001_careers.sql` e do `004_trivia.sql`.
+> **Estado atual do projeto `rgyraqbvidnzzapdvrhm`:** os scripts 001 a 005 já estão aplicados (002 e 003 pelo conector do Supabase em 29/10/2026; 004, do modo Trivia, em 01/11/2026). Um projeto novo precisa do `001_careers.sql`, do `004_trivia.sql` e do `005_comunidade.sql` (005 aplicado em 01/11/2026).
 
 ## 2. Formas de login
 
@@ -80,3 +80,9 @@ Crie uma conta com e-mail e senha (ou use o Google) e você cai em "Minhas carre
 | Estrela | Marca ou desmarca como favorita |
 | Apagar | Remove a carreira (com confirmação) |
 | Entrar com uma carreira de convidado no aparelho | Oferece salvá-la na conta |
+| Compartilhar na Comunidade (carreira encerrada) | Cria uma linha em `shared_careers` com a foto da carreira; só o dono, e só se a carreira estiver aposentada |
+| Comunidade e link `#c-…` | Qualquer pessoa lê `shared_careers` (sem `user_id`, denúncias ou ocultação) |
+| Tirar da Comunidade / apagar a carreira | Apaga a linha em `shared_careers` |
+| Denunciar | Cria uma linha em `share_reports`; com 3 denúncias a carreira fica oculta (`hidden`) |
+
+Para revisar uma carreira ocultada: **Table Editor > shared_careers**, filtre `hidden = true`, confira e mude para `false` (ou apague a linha).

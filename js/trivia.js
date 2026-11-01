@@ -8,6 +8,7 @@ const Trivia = (() => {
   const T = E.TOURNAMENTS;
 
   // ---------- configuração ----------
+  const START_AGE = 19;                  // V9: toda carreira do Trivia começa aos 19
   const RETIRE_AGE = 38;                 // aposentadoria obrigatória
   const RETIRE_BUTTON_AGE = 30;          // botão de aposentar a partir desta idade
   // segundos para responder, por rodada (cai a cada rodada até a final)
@@ -495,7 +496,7 @@ const Trivia = (() => {
   let saver = null;
   function save(state) { saver && saver(state); }
 
-  return { BANK, BY_ID, BY_TIER, TIMERS, TIERS, ROUND_NAME, TIER_NAME, RETIRE_AGE, RETIRE_BUTTON_AGE, BONUS_WINS, BONUS_LOSSES, BONUS_CHANCE,
+  return { BANK, BY_ID, BY_TIER, TIMERS, TIERS, ROUND_NAME, TIER_NAME, START_AGE, RETIRE_AGE, RETIRE_BUTTON_AGE, BONUS_WINS, BONUS_LOSSES, BONUS_CHANCE,
     newCareer, startSeason, prepare, startClock, takeBonus, answer, cont, retire, stats, tags, matchLabel, roundKey,
     setSaver: fn => { saver = fn; } };
 })();

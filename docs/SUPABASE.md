@@ -12,7 +12,7 @@ Enquanto a chave pública não estiver no `js/config.js`, o jogo funciona só no
 
 Isso cria a tabela `careers` com as regras de segurança: cada jogador só lê, cria, altera e apaga as próprias carreiras. Também limita cada jogador a 200 carreiras salvas.
 
-> **Estado atual do projeto `rgyraqbvidnzzapdvrhm`:** os scripts 001, 002 e 003 já estão aplicados (os dois últimos aplicados direto pelo conector do Supabase em 29/10/2026). Um projeto novo precisa só do `001_careers.sql`, que já inclui tudo.
+> **Estado atual do projeto `rgyraqbvidnzzapdvrhm`:** os scripts 001 a 004 já estão aplicados (002 e 003 pelo conector do Supabase em 29/10/2026; 004, do modo Trivia, em 01/11/2026). Um projeto novo precisa do `001_careers.sql` e do `004_trivia.sql`.
 
 ## 2. Formas de login
 
@@ -73,7 +73,7 @@ Crie uma conta com e-mail e senha (ou use o Google) e você cai em "Minhas carre
 
 | Ação no jogo | O que acontece |
 |---|---|
-| Criar carreira (logado) | Cria uma linha em `careers` |
+| Criar carreira (logado) | Cria uma linha em `careers` (`mode` = `full` ou `trivia`) |
 | Decisões, temporadas, avançar, aposentar | Atualiza a linha (agrupa mudanças rápidas, ~1 s) |
 | Minhas carreiras | Lista as carreiras do jogador (favoritas primeiro) |
 | Continuar / Ver resumo | Carrega o estado completo e retoma de onde parou |

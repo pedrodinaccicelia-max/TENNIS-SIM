@@ -62,9 +62,10 @@
   function rowFor(s) {
     const st = Engine.careerStats(s);
     const { cloudId, ...clean } = s;
+    const tv = isTrivia(s), tst = tv ? Trivia.stats(s) : null;
     return { name: s.player.name, nat: s.player.nat, status: Engine.careerStatus(st).label, retired: !!s.retired,
-             seasons: s.seasons.length, age: s.age, ovr: s.ovr, majors: st.majors, titles: st.titles,
-             best_rank: s.bestRank, game_version: 7, state: clean };
+             seasons: s.seasons.length, age: s.age, ovr: tv ? null : s.ovr, majors: st.majors, titles: st.titles,
+             best_rank: s.bestRank, game_version: 8, mode: tv ? 'trivia' : 'full', accuracy: tv && tst.n ? tst.acc : null, state: clean };
   }
   function scheduleCloudSave(delay = 1200) {
     dirty = true; setSaveState('pending');
@@ -937,7 +938,7 @@
     <section class="hero">
       <span class="eyebrow">Simulador de carreira de tênis</span>
       <h1>Sua carreira começa aqui</h1>
-      <p>Crie um tenista, tome as decisões certas e dispute Grand Slams, Masters e o ATP Finals até a aposentadoria.</p>
+      <p>Crie um tenista e dispute Grand Slams, Masters e o ATP Finals até a aposentadoria. No FULL Sim, você toma as decisões; no Trivia, cada partida é uma pergunta de tênis.</p>
     </section>
     <div class="home-grid">
       <section class="panel home-card">${viewAuthCard()}</section>
@@ -945,7 +946,7 @@
         <span class="eyebrow">Sem conta</span>
         <h2>Jogar como convidado</h2>
         <p class="muted">Comece agora mesmo. A carreira fica salva só neste navegador e não aparece em outros aparelhos.</p>
-        ${local ? `<div class="end-note">Carreira neste aparelho: <strong>${esc(local.state.player.name)}</strong>, ${local.state.retired ? 'aposentado' : `${local.state.age} anos, temporada ${local.state.year}`}.</div>` : ''}
+        ${local ? `<div class="end-note">Carreira neste aparelho${isTrivia(local.state) ? ' (Trivia)' : ''}: <strong>${esc(local.state.player.name)}</strong>, ${local.state.retired ? 'aposentado' : `${local.state.age} anos, temporada ${local.state.year}`}.</div>` : ''}
         <div class="btn-row"><button class="btn btn-ghost" id="guestBtn">${local ? 'Continuar como convidado' : 'Jogar sem cadastro'}</button></div>
       </section>
     </div>
@@ -966,7 +967,7 @@
           <div class="ccard-name"><span class="flag">${flag(n[0])}</span><b>${esc(c.name)}</b></div>
           <button class="star" data-fav="${c.id}" aria-pressed="${c.favorite}" aria-label="${c.favorite ? 'Tirar dos favoritos' : 'Marcar como favorita'}" title="${c.favorite ? 'Favorita' : 'Marcar como favorita'}">${c.favorite ? '★' : '☆'}</button>
         </div>
-        <div class="pills"><span class="pill ${c.retired ? 'special' : ''}">${c.retired ? esc(c.status || 'Aposentado') : `Em andamento · ${c.age} anos`}</span><span class="pill">OVR ${c.ovr ?? '–'}</span></div>
+        <div class="pills"><span class="pill ${c.mode === 'trivia' ? 'trivia' : ''}">${c.mode === 'trivia' ? 'Trivia' : 'FULL Sim'}</span><span class="pill ${c.retired ? 'special' : ''}">${c.retired ? esc(c.status || 'Aposentado') : `Em andamento · ${c.age} anos`}</span><span class="pill">${c.mode === 'trivia' ? `Acerto ${c.accuracy != null ? Math.round(c.accuracy * 100) + '%' : '–'}` : `OVR ${c.ovr ?? '–'}`}</span></div>
         <div class="ccard-stats">
           <div><span>Temporadas</span><b>${c.seasons}</b></div><div><span>Slams</span><b>${c.majors}</b></div>
           <div><span>Títulos</span><b>${c.titles}</b></div><div><span>Melhor rank</span><b>${c.best_rank ? '#' + c.best_rank : '–'}</b></div>
@@ -982,7 +983,7 @@
       <div><span class="eyebrow">Conectado como ${esc(account.user.email || '')}</span><h1>Minhas carreiras</h1></div>
       <div class="btn-row"><button class="btn btn-primary" id="newFromHome">Nova carreira</button><button class="btn btn-ghost" id="signOut">Sair</button></div>
     </section>
-    ${local ? `<section class="panel import-card"><div><strong>Você tem uma carreira de convidado neste aparelho:</strong> ${esc(local.state.player.name)}, ${local.state.retired ? 'aposentado' : `${local.state.age} anos`}. Quer guardá-la na sua conta?</div>
+    ${local ? `<section class="panel import-card"><div><strong>Você tem uma carreira de convidado neste aparelho${isTrivia(local.state) ? ' (Trivia)' : ''}:</strong> ${esc(local.state.player.name)}, ${local.state.retired ? 'aposentado' : `${local.state.age} anos`}. Quer guardá-la na sua conta?</div>
       <div class="btn-row"><button class="btn btn-primary btn-sm" id="importLocal" ${home.importing ? 'disabled' : ''}>${home.importing ? 'Salvando…' : 'Salvar na minha conta'}</button></div></section>` : ''}
     ${body}`;
   }

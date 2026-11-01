@@ -1,6 +1,6 @@
 // Simula carreiras inteiras do modo Trivia com um "jogador" que acerta com probabilidade p
 const Trivia = require('../js/trivia.js');
-function career(p, age = 18) {
+function career(p, age = Trivia.START_AGE) {
   const s = Trivia.newCareer({ name: 'Teste', nat: 'BRA', hand: 'Destro', backhand: 'Duas mãos' }, age);
   let guard = 0;
   while (!s.retired && guard++ < 100) {

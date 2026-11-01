@@ -2,6 +2,12 @@
 
 O detalhamento de cada versão está nos documentos de [`docs/regras/`](docs/regras/).
 
+## V9: Trivia mais direto
+- Layout vertical no Trivia: cartão do jogador no topo, painel da pergunta centralizado e a tabela temporada a temporada embaixo (o FULL Sim não mudou).
+- No PC, as 4 alternativas ficam em duas colunas; a trilha das rodadas marca em vermelho a rodada em que você caiu.
+- Criação do Trivia só com nome e nacionalidade; toda carreira começa aos 19 anos (2026).
+- Em "Minhas carreiras", as carreiras do Trivia aparecem com fundo azul.
+
 ## V8: modo Trivia
 - Novo modo de jogo **Trivia**, escolhido na criação da carreira (o jogo de antes passa a se chamar **FULL Sim**).
 - Cada rodada é uma pergunta de 4 alternativas; errar ou deixar o tempo acabar elimina do torneio.

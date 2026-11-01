@@ -201,7 +201,7 @@
             <div class="nat-list" role="listbox">${list.map(x => `<button role="option" data-nat="${x[1]}" aria-selected="${x[1] === draft.nat}"><span class="flag">${flag(x[0])}</span>${x[2]}</button>`).join('') || '<span class="muted">Nenhum país encontrado.</span>'}</div>
           </div>` : ''}
         </div>
-        <div class="field">
+        ${tv ? '' : `<div class="field">
           <span class="label">Mão dominante</span>
           <div class="seg">${['Destro', 'Canhoto'].map(h => `<button data-hand="${h}" aria-pressed="${draft.hand === h}">${h}</button>`).join('')}</div>
         </div>
@@ -209,7 +209,7 @@
           <span class="label">Backhand</span>
           <div class="seg">${['Uma mão', 'Duas mãos'].map(h => `<button data-bh="${h}" aria-pressed="${draft.backhand === h}">${h}</button>`).join('')}</div>
         </div>
-        ${tv ? '' : `<div class="field span-2">
+        <div class="field span-2">
           <span class="label">Tipo de experiência</span>
           <div class="exp-grid">${Object.entries(EXP).map(([k, [t, d]]) => `<button class="exp" data-exp="${k}" aria-pressed="${draft.exp === k}"><strong>${t}</strong><span>${d}</span></button>`).join('')}</div>
         </div>
@@ -219,25 +219,25 @@
         </div>`}
       </div>
     </section>
-    <div class="draws ${tv ? 'one' : ''}">
-      ${tv ? '' : drawBlock('ovr', 'Overall inicial', [50, 60, 70], 'Sortear overall')}
+    ${tv ? '' : `<div class="draws">
+      ${drawBlock('ovr', 'Overall inicial', [50, 60, 70], 'Sortear overall')}
       ${drawBlock('age', 'Idade de estreia', [16, 18, 21], 'Sortear idade')}
-    </div>
+    </div>`}
     ${tv ? `<section class="panel trivia-rules">
       <span class="eyebrow">Como funciona o Trivia</span>
       <ul>
         <li>Cada rodada de cada torneio é uma pergunta com 4 alternativas. Acertou, avança; errou ou o tempo acabou, está eliminado.</li>
         <li>O tempo para responder cai a cada rodada: <b>${Trivia.TIMERS.R1}s</b> na 1ª rodada até <b>${Trivia.TIMERS.F}s</b> na final. As perguntas também ficam mais difíceis.</li>
         <li>Às vezes aparece a <b class="gold">Pergunta Bônus</b>: muito difícil e com ${Trivia.TIMERS.BONUS}s. Acertou, ${Trivia.BONUS_WINS} vitórias garantidas; errou, ${Trivia.BONUS_LOSSES} derrotas.</li>
-        <li>Nenhuma pergunta se repete na mesma carreira. Sem eventos, sem rivais. Aposentadoria obrigatória aos ${Trivia.RETIRE_AGE} anos.</li>
+        <li>Toda carreira começa aos ${Trivia.START_AGE} anos, em 2026. Nenhuma pergunta se repete na mesma carreira. Sem eventos, sem rivais. Aposentadoria obrigatória aos ${Trivia.RETIRE_AGE} anos.</li>
       </ul>
     </section>` : ''}
     <div class="btn-row" style="margin-top:20px">
       <button class="btn btn-primary" id="startBtn" ${ready ? '' : 'disabled'}>${tv ? 'Começar carreira no Trivia' : 'Começar carreira'}</button>
     </div>
-    <p class="draw-hint" style="margin-top:10px">${ready ? '' : tv ? 'Preencha o nome e sorteie a idade de estreia para começar.' : 'Preencha o nome e faça os dois sorteios para começar.'}</p>`;
+    <p class="draw-hint" style="margin-top:10px">${ready ? '' : tv ? 'Preencha o nome para começar.' : 'Preencha o nome e faça os dois sorteios para começar.'}</p>`;
   }
-  function draftReady() { return !!(draft.name.trim() && draft.age && (draft.mode === 'trivia' || draft.ovr)); }
+  function draftReady() { return !!(draft.name.trim() && (draft.mode === 'trivia' || (draft.age && draft.ovr))); }
   function drawBlock(key, title, opts, label) {
     const v = draft[key];
     return `<section class="panel draw">
@@ -581,8 +581,7 @@
           <div class="pills">
             <span class="pill"><span class="flag">${flag(n[0])}</span>${n[1]}</span>
             <span class="pill">${s.age} anos</span>
-            <span class="pill">${p.hand}</span>
-            <span class="pill">Backhand ${p.backhand === 'Uma mão' ? '1 mão' : '2 mãos'}</span>
+            ${p.hand ? `<span class="pill">${p.hand}</span>` : ''}
             <span class="pill trivia">Trivia</span>
             ${bonusPill}
           </div>
@@ -628,13 +627,14 @@
     const kind = t.type === 'major' ? 'Grand Slam' : t.type === 'masters' ? 'Masters 1000' : 'Fim de temporada';
     let steps = '';
     if (tr) {
-      const fb = I.fb, endedW = fb && fb.ended && fb.result && fb.result.label === 'W';
+      const fb = I.fb, endedW = fb && fb.ended && fb.result && fb.result.label === 'W', endedL = fb && fb.ended && fb.result && !endedW && fb.result.label !== '-';
       if (t.type === 'finals') {
         const list = ['RR', 'RR', 'RR', 'SF', 'F'];
         const pos = tr.stage === 'RR' ? tr.rrPlayed : tr.stage === 'SF' ? 3 : 4;
-        steps = list.map((r, i) => `<i class="${endedW || i < pos ? 'done' : i === pos && !(fb && fb.ended) ? 'cur' : ''}">${r}</i>`).join('');
+        const lostAt = endedL ? (fb.result.label === 'RR' ? 2 : fb.result.label === 'SF' ? 3 : 4) : -1;
+        steps = list.map((r, i) => `<i class="${i === lostAt ? 'lost' : endedW || (i < pos && !(lostAt >= 0 && i >= lostAt)) ? 'done' : i === pos && !(fb && fb.ended) ? 'cur' : ''}">${r}</i>`).join('');
       } else {
-        steps = ['R1', 'R2', 'R3', 'R16', 'QF', 'SF', 'F'].map((r, i) => `<i class="${i < tr.start ? 'bye' : endedW || i < tr.ri ? 'done' : i === tr.ri && !(fb && fb.ended) ? 'cur' : ''}">${r}</i>`).join('');
+        steps = ['R1', 'R2', 'R3', 'R16', 'QF', 'SF', 'F'].map((r, i) => `<i class="${i < tr.start ? 'bye' : endedW || i < tr.ri ? 'done' : i === tr.ri && endedL ? 'lost' : i === tr.ri && !(fb && fb.ended) ? 'cur' : ''}">${r}</i>`).join('');
       }
     }
     return `<div class="tq-tour">${court(t.surface)}<div class="tq-tour-main"><span class="eyebrow">Temporada ${state.year} · ${kind} · ${Math.min(I.ti + 1, T.length)} de ${T.length}</span><div class="tq-tname">${t.name}</div></div></div>
@@ -770,11 +770,17 @@
   // relógio da pergunta
   let tqTimer = null;
   function stopTriviaClock() { clearInterval(tqTimer); tqTimer = null; }
+  // V9: o painel da pergunta fica no centro; se o jogador rolou até a tabela, volta para ele
+  function showTriviaPanel() {
+    const v = document.getElementById('vivo'); if (!v) return;
+    const r = v.getBoundingClientRect();
+    if (r.top < 0 || r.top > innerHeight * 0.45) v.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start' });
+  }
   function triviaAnswer(idx) {
     stopTriviaClock();
     if (!Trivia.answer(state, idx)) return;
     render();
-    focusPanel();
+    showTriviaPanel();
   }
   function afterRenderTrivia() {
     if (!isTrivia(state) || ui.view !== 'game' || !state.inSeason) return;
@@ -798,9 +804,9 @@
   }
   function triviaClick(b) {
     if (b.dataset.opt !== undefined) { triviaAnswer(+b.dataset.opt); return true; }
-    if (b.id === 'tqNext') { Trivia.cont(state); ui.fresh = !state.inSeason; render(); ui.fresh = false; if (!state.inSeason) focusPanel(); return true; }
-    if (b.id === 'bonusYes' || b.id === 'bonusNo') { Trivia.takeBonus(state, b.id === 'bonusYes'); render(); return true; }
-    if (b.id === 'tStart') { ui.confirm = null; Trivia.startSeason(state); render(); focusPanel(); return true; }
+    if (b.id === 'tqNext') { Trivia.cont(state); ui.fresh = !state.inSeason; render(); ui.fresh = false; showTriviaPanel(); return true; }
+    if (b.id === 'bonusYes' || b.id === 'bonusNo') { Trivia.takeBonus(state, b.id === 'bonusYes'); render(); showTriviaPanel(); return true; }
+    if (b.id === 'tStart') { ui.confirm = null; Trivia.startSeason(state); render(); showTriviaPanel(); return true; }
     if (b.id === 'retireYes') { Trivia.retire(state); ui.confirm = null; ui.view = 'summary'; persist(); render(); scrollTo({ top: 0 }); return true; }
     return false;
   }
@@ -962,7 +968,7 @@
     else if (!list.length) body = `<section class="panel empty-card"><h2>Comece a sua primeira carreira</h2><p class="muted">Cada carreira que você criar fica salva aqui automaticamente, temporada a temporada. Você pode continuar de onde parou em qualquer aparelho.</p><div class="btn-row"><button class="btn btn-primary" id="newFromHome2">Criar carreira</button></div></section>`;
     else body = `<div class="career-list">${list.map(c => { const n = nation(c.nat);
       const del = home.confirmDel === c.id;
-      return `<article class="ccard ${c.favorite ? 'fav' : ''}">
+      return `<article class="ccard ${c.favorite ? 'fav' : ''} ${c.mode === 'trivia' ? 'is-trivia' : ''}">
         <div class="ccard-top">
           <div class="ccard-name"><span class="flag">${flag(n[0])}</span><b>${esc(c.name)}</b></div>
           <button class="star" data-fav="${c.id}" aria-pressed="${c.favorite}" aria-label="${c.favorite ? 'Tirar dos favoritos' : 'Marcar como favorita'}" title="${c.favorite ? 'Favorita' : 'Marcar como favorita'}">${c.favorite ? '★' : '☆'}</button>
@@ -1077,7 +1083,7 @@
   // ---------- render + eventos ----------
   function render() {
     const meta = document.getElementById('topMeta');
-    document.body.dataset.view = (ui.view === 'game' && state) ? 'game' : 'other';
+    document.body.dataset.view = (ui.view === 'game' && state) ? (isTrivia(state) ? 'trivia-game' : 'game') : 'other';
     document.body.dataset.mode = isTrivia(state) && ui.view !== 'home' ? 'trivia' : 'full';
     stopTriviaClock();
     if (ui.view === 'home') { $app.innerHTML = viewHome(); meta.textContent = account.mode === 'user' ? 'Minhas carreiras' : 'Simulador de carreira'; paintTop(); return; }
@@ -1106,7 +1112,7 @@
     if (b.dataset.mode) { draft.mode = b.dataset.mode; render(); return; }
     if (b.dataset.draw) { runDraw(b.dataset.draw); return; }
     if (b.id === 'startBtn' && draft.mode === 'trivia') {
-      state = Trivia.newCareer({ name: draft.name.trim(), nat: draft.nat, hand: draft.hand, backhand: draft.backhand }, draft.age);
+      state = Trivia.newCareer({ name: draft.name.trim(), nat: draft.nat }, Trivia.START_AGE);
       ui.view = 'game'; ui.confirm = null; persist(); render(); scrollTo({ top: 0 }); return;
     }
     if (b.id === 'startBtn') {

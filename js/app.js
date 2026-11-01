@@ -1,6 +1,9 @@
 /* ============ Tennis Simulator — telas e fluxo do jogo ============ */
 (() => {
   const SAVE_KEY = 'tennis-sim-save-v1';
+  const isTrivia = s => !!(s && s.mode === 'trivia');
+  // carreiras do Trivia não passam pela migração do FULL Sim
+  const loadState = raw => isTrivia(raw) ? raw : Engine.migrate(raw);
   const $app = document.getElementById('app');
   const T = Engine.TOURNAMENTS;
 
@@ -34,7 +37,7 @@
   const modChips = mod => ['grass', 'hard', 'clay'].map(sf => { const v = mod[sf] || 0;
     return `<span class="mod ${v > 0 ? 'up' : v < 0 ? 'down' : 'zero'}"><i style="background:${SURF_COLOR[sf]}"></i>${Engine.SURFACE_NAME[sf]} <b>${v > 0 ? '+' : v < 0 ? '−' : '±'}${Math.abs(v)}</b></span>`; }).join('');
   const rivalNation = key => { const r = RIVALS[key]; return NATIONS.find(n => n[1] === r.nat) || NATIONS[0]; };
-  const freshDraft = () => ({ name: '', nat: 'BRA', hand: 'Destro', backhand: 'Duas mãos', exp: 'normal', style: 'allcourt', ovr: null, age: null, natOpen: false, natQ: '' });
+  const freshDraft = () => ({ mode: 'full', name: '', nat: 'BRA', hand: 'Destro', backhand: 'Duas mãos', exp: 'normal', style: 'allcourt', ovr: null, age: null, natOpen: false, natQ: '' });
 
   // ---------- estado ----------
   let state = null;          // carreira
@@ -125,7 +128,7 @@
   function enterGuest() {
     account = { mode: 'guest', user: null };
     const sv = localGuestCareer();
-    if (sv) { state = Engine.migrate(sv.state); ui = { view: sv.view === 'summary' && state.retired ? 'summary' : 'game', confirm: null, modal: state.pendingFinal ? 'rival' : null, fresh: false }; }
+    if (sv) { state = loadState(sv.state); ui = { view: sv.view === 'summary' && state.retired ? 'summary' : 'game', confirm: null, modal: state.pendingFinal ? 'rival' : null, fresh: false }; }
     else { state = null; ui = { view: 'create', confirm: null, modal: null, fresh: false }; }
     render(); scrollTo({ top: 0 });
   }
@@ -133,7 +136,7 @@
     home.loading = true; render();
     try {
       const row = await Cloud.load(id);
-      state = Engine.migrate(row.state); state.cloudId = row.id;
+      state = loadState(row.state); state.cloudId = row.id;
       ui = { view: state.retired ? 'summary' : 'game', confirm: null, modal: state.pendingFinal ? 'rival' : null, fresh: false };
       saveInfo = { kind: 'saved', msg: '' };
       home.loading = false; render(); scrollTo({ top: 0 });
@@ -161,6 +164,7 @@
     } else if (ui.view === 'home') render();
   }
   Engine.setSaver(() => persist());
+  Trivia.setSaver(() => persist());
   function loadSave() {
     try { const raw = localStorage.getItem(SAVE_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
   }
@@ -170,13 +174,18 @@
     const n = nation(draft.nat);
     const q = draft.natQ.trim().toLowerCase();
     const list = NATIONS.filter(x => !q || x[2].toLowerCase().includes(q) || x[1].toLowerCase().includes(q));
-    const ready = draft.name.trim() && draft.ovr && draft.age;
+    const tv = draft.mode === 'trivia';
+    const ready = draftReady();
     return `
     <section class="hero">
       <span class="eyebrow">Nova carreira · Temporada 2026</span>
       <h1>Crie seu tenista</h1>
-      <p>Monte o jogador, sorteie o overall e a idade de estreia, e tome as decisões que vão definir títulos, lesões e o seu lugar no ranking.</p>
+      <p>${tv ? 'No Trivia não existe overall: cada partida é uma pergunta sobre tênis. Acertou, avança. Errou ou o tempo acabou, está fora do torneio.' : 'Monte o jogador, sorteie o overall e a idade de estreia, e tome as decisões que vão definir títulos, lesões e o seu lugar no ranking.'}</p>
     </section>
+    <div class="mode-grid" role="radiogroup" aria-label="Modo de jogo">
+      <button class="mode-card" data-mode="full" role="radio" aria-checked="${!tv}"><span class="mode-k">Modo</span><strong>FULL Sim</strong><span>Overall, eventos, lesões e rivais. A simulação decide, você toma as decisões.</span></button>
+      <button class="mode-card trivia" data-mode="trivia" role="radio" aria-checked="${tv}"><span class="mode-k">Modo</span><strong>Trivia</strong><span>Sem OVR e sem sorte: cada partida é uma pergunta de tênis, com o relógio correndo.</span></button>
+    </div>
     <section class="panel">
       <div class="form-grid">
         <div class="field span-2">
@@ -199,25 +208,35 @@
           <span class="label">Backhand</span>
           <div class="seg">${['Uma mão', 'Duas mãos'].map(h => `<button data-bh="${h}" aria-pressed="${draft.backhand === h}">${h}</button>`).join('')}</div>
         </div>
-        <div class="field span-2">
+        ${tv ? '' : `<div class="field span-2">
           <span class="label">Tipo de experiência</span>
           <div class="exp-grid">${Object.entries(EXP).map(([k, [t, d]]) => `<button class="exp" data-exp="${k}" aria-pressed="${draft.exp === k}"><strong>${t}</strong><span>${d}</span></button>`).join('')}</div>
         </div>
         <div class="field span-2">
           <span class="label">Play Style</span>
           <div class="style-grid">${Object.entries(STYLES).map(([k, st]) => `<button class="style" data-style="${k}" aria-pressed="${draft.style === k}"><strong>${st.name}</strong><span>${st.desc}</span><div class="mods">${modChips(st.mod)}</div></button>`).join('')}</div>
-        </div>
+        </div>`}
       </div>
     </section>
-    <div class="draws">
-      ${drawBlock('ovr', 'Overall inicial', [50, 60, 70], 'Sortear overall')}
+    <div class="draws ${tv ? 'one' : ''}">
+      ${tv ? '' : drawBlock('ovr', 'Overall inicial', [50, 60, 70], 'Sortear overall')}
       ${drawBlock('age', 'Idade de estreia', [16, 18, 21], 'Sortear idade')}
     </div>
+    ${tv ? `<section class="panel trivia-rules">
+      <span class="eyebrow">Como funciona o Trivia</span>
+      <ul>
+        <li>Cada rodada de cada torneio é uma pergunta com 4 alternativas. Acertou, avança; errou ou o tempo acabou, está eliminado.</li>
+        <li>O tempo para responder cai a cada rodada: <b>${Trivia.TIMERS.R1}s</b> na 1ª rodada até <b>${Trivia.TIMERS.F}s</b> na final. As perguntas também ficam mais difíceis.</li>
+        <li>Às vezes aparece a <b class="gold">Pergunta Bônus</b>: muito difícil e com ${Trivia.TIMERS.BONUS}s. Acertou, ${Trivia.BONUS_WINS} vitórias garantidas; errou, ${Trivia.BONUS_LOSSES} derrotas.</li>
+        <li>Nenhuma pergunta se repete na mesma carreira. Sem eventos, sem rivais. Aposentadoria obrigatória aos ${Trivia.RETIRE_AGE} anos.</li>
+      </ul>
+    </section>` : ''}
     <div class="btn-row" style="margin-top:20px">
-      <button class="btn btn-primary" id="startBtn" ${ready ? '' : 'disabled'}>Começar carreira</button>
+      <button class="btn btn-primary" id="startBtn" ${ready ? '' : 'disabled'}>${tv ? 'Começar carreira no Trivia' : 'Começar carreira'}</button>
     </div>
-    <p class="draw-hint" style="margin-top:10px">${ready ? '' : 'Preencha o nome e faça os dois sorteios para começar.'}</p>`;
+    <p class="draw-hint" style="margin-top:10px">${ready ? '' : tv ? 'Preencha o nome e sorteie a idade de estreia para começar.' : 'Preencha o nome e faça os dois sorteios para começar.'}</p>`;
   }
+  function draftReady() { return !!(draft.name.trim() && draft.age && (draft.mode === 'trivia' || draft.ovr)); }
   function drawBlock(key, title, opts, label) {
     const v = draft[key];
     return `<section class="panel draw">
@@ -249,6 +268,7 @@
 
   // ---------- jogo ----------
   function viewGame() {
+    if (isTrivia(state)) return viewTriviaGame();
     const s0 = state, p = s0.player, n = nation(p.nat), L = ui.live;
     // Durante a revelação, a temporada em andamento ainda não conta nos números do topo.
     const visible = L && L.complete ? s0.seasons.slice(0, -1) : s0.seasons;
@@ -478,7 +498,7 @@
       : `<div class="actions"><button class="btn btn-primary" id="advanceBtn">Avançar para ${s.year}</button></div>`;
     if (!list.length) return `<span class="eyebrow">Fim de carreira</span><h2>Aposentado</h2>` + action;
     const lastSe = list[list.length - 1];
-    const ovrLine = s.retired ? '' : (() => {
+    const ovrLine = isTrivia(s) ? (lastSe.answered ? `<div class="news-line ${lastSe.acc >= 0.8 ? 'good' : lastSe.acc < 0.6 ? 'bad' : ''}"><i></i><span>Acertos na temporada: ${lastSe.correct} de ${lastSe.answered} (${Math.round(lastSe.acc * 100)}%).</span></div>` : '') : s.retired ? '' : (() => {
       const from = list.length > 1 ? list[0].ovrStart : lastSe.ovr, d = s.ovr - from;
       const txt = list.length > 1 ? `OVR ${from} → ${s.ovr} para ${s.year}` : (lastSe.nextDelta ? `${lastSe.nextDelta > 0 ? 'Evolução' : 'Desgaste da idade'}: ${lastSe.nextDelta > 0 ? '+' : ''}${lastSe.nextDelta} OVR para ${s.year} (${s.ovr})` : `Overall estável para ${s.year} (${s.ovr})`);
       return `<div class="news-line ${d > 0 ? 'good' : d < 0 ? 'bad' : ''}"><i></i><span>${txt}.</span></div>`;
@@ -538,6 +558,263 @@
       <tbody>${pending}${rows}</tbody></table></div>`;
   }
 
+  // ---------- modo Trivia ----------
+  const pctAcc = x => `${Math.round(x * 100)}%`;
+  const fmtSec = ms => `${(ms / 1000).toFixed(1).replace('.', ',')} s`;
+  const deOf = t => ['AO', 'USO', 'FIN', 'MC'].includes(t.id) ? 'do' : 'de';
+  const ROUND_SHORT = { R1: 'R1', R2: 'R2', R3: 'R3', R16: 'R16', QF: 'QF', SF: 'SF', F: 'F', RR: 'RR' };
+
+  function viewTriviaGame() {
+    const s = state, p = s.player, n = nation(p.nat);
+    const st = Engine.careerStats(s), tst = Trivia.stats(s);
+    const last = s.seasons[s.seasons.length - 1];
+    const bonusPill = s.autoWins > 0 ? `<span class="pill bonus-pill">Bônus: ${s.autoWins} ${s.autoWins > 1 ? 'vitórias garantidas' : 'vitória garantida'}</span>`
+      : s.autoLosses > 0 ? `<span class="pill warn">Bônus: ${s.autoLosses} ${s.autoLosses > 1 ? 'derrotas' : 'derrota'} pela frente</span>` : '';
+    const I = s.inSeason, bonusOn = I && ((I.phase === 'question' && I.cur && I.cur.bonus) || I.phase === 'offer');
+    return `
+    <section class="panel pcard">
+      <div class="player">
+        <div class="ovr acc-box"><small>Acerto</small><b class="num">${tst.n ? Math.round(tst.acc * 100) : '–'}${tst.n ? '<i>%</i>' : ''}</b></div>
+        <div class="player-main">
+          <div class="player-name">${esc(p.name)}</div>
+          <div class="pills">
+            <span class="pill"><span class="flag">${flag(n[0])}</span>${n[1]}</span>
+            <span class="pill">${s.age} anos</span>
+            <span class="pill">${p.hand}</span>
+            <span class="pill">Backhand ${p.backhand === 'Uma mão' ? '1 mão' : '2 mãos'}</span>
+            <span class="pill trivia">Trivia</span>
+            ${bonusPill}
+          </div>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><span>Rank atual</span><b>${last && last.rank ? '#' + last.rank : '–'}</b></div>
+        <div class="stat"><span>Melhor rank</span><b>${s.bestRank ? '#' + s.bestRank : '–'}</b></div>
+        <div class="stat"><span>Acertos</span><b>${tst.ok}/${tst.n}</b></div>
+        <div class="stat"><span>V-D</span><b>${st.wins}-${st.losses}</b></div>
+        <div class="stat"><span>Títulos</span><b>${st.titles}</b></div>
+        <div class="stat"><span>Prêmios</span><b>${money(st.prize)}</b></div>
+      </div>
+    </section>
+    <div class="main-row">
+      <section class="panel vivo tvivo ${bonusOn ? 'is-bonus' : ''}" id="vivo">${viewTriviaPanel()}</section>
+      <section class="career-col">
+        <div class="career-head">
+          <div><span class="eyebrow">Carreira · Trivia</span><h2>Temporada a temporada</h2></div>
+          <span class="scroll-hint">Arraste a tabela para o lado →</span>
+        </div>
+        ${viewTriviaTable()}
+        <div class="legend">
+          <span><span class="res W">W</span>Campeão</span><span><span class="res F">F</span>Vice</span><span><span class="res SF">SF</span>Semi</span>
+          <span><span class="res QF">QF</span>Quartas</span><span><span class="res">R16</span>Oitavas</span><span><span class="res">R1–R3</span>Rodadas</span>
+          <span><span class="res RR">RR</span>Grupos (Finals)</span><span><span class="res none">–</span>Não classificado</span>
+        </div>
+      </section>
+    </div>`;
+  }
+
+  function viewTriviaPanel() {
+    const s = state;
+    if (s.awaitingAdvance || s.retired) return viewSeasonEnd();
+    if (!s.inSeason) return viewTriviaReady();
+    const I = s.inSeason;
+    const body = I.phase === 'question' ? viewQuestion() : I.phase === 'offer' ? viewOffer() : viewFeedback();
+    return tourHeader() + body + triviaTally();
+  }
+
+  function tourHeader() {
+    const I = state.inSeason, t = T[Math.min(I.ti, T.length - 1)], tr = I.tour;
+    const kind = t.type === 'major' ? 'Grand Slam' : t.type === 'masters' ? 'Masters 1000' : 'Fim de temporada';
+    let steps = '';
+    if (tr) {
+      const fb = I.fb, endedW = fb && fb.ended && fb.result && fb.result.label === 'W';
+      if (t.type === 'finals') {
+        const list = ['RR', 'RR', 'RR', 'SF', 'F'];
+        const pos = tr.stage === 'RR' ? tr.rrPlayed : tr.stage === 'SF' ? 3 : 4;
+        steps = list.map((r, i) => `<i class="${endedW || i < pos ? 'done' : i === pos && !(fb && fb.ended) ? 'cur' : ''}">${r}</i>`).join('');
+      } else {
+        steps = ['R1', 'R2', 'R3', 'R16', 'QF', 'SF', 'F'].map((r, i) => `<i class="${i < tr.start ? 'bye' : endedW || i < tr.ri ? 'done' : i === tr.ri && !(fb && fb.ended) ? 'cur' : ''}">${r}</i>`).join('');
+      }
+    }
+    return `<div class="tq-tour">${court(t.surface)}<div class="tq-tour-main"><span class="eyebrow">Temporada ${state.year} · ${kind} · ${Math.min(I.ti + 1, T.length)} de ${T.length}</span><div class="tq-tname">${t.name}</div></div></div>
+      ${steps ? `<div class="tq-path" aria-hidden="true">${steps}</div>` : ''}`;
+  }
+  function triviaTally() {
+    const I = state.inSeason; let ti = 0, w = 0, l = 0, pts = 0;
+    Object.values(I.results).forEach(r => { ti += r.label === 'W'; w += r.wins; l += r.losses; pts += r.pts; });
+    return `<div class="season-sum tally"><div><span>Títulos</span><b>${ti}</b></div><div><span>V-D</span><b>${w}-${l}</b></div><div><span>Pontos</span><b>${pts.toLocaleString('pt-BR')}</b></div><div><span>Acertos</span><b>${I.ok}/${I.n}</b></div></div>`;
+  }
+
+  function viewQuestion() {
+    const c = state.inSeason.cur;
+    const left = c.deadline ? Math.max(0, c.deadline - Date.now()) : c.limit * 1000;
+    return `<div class="tq ${c.bonus ? 'bonus' : ''}">
+      ${c.bonus ? `<div class="bonus-badge"><b>★ Pergunta Bônus</b><span>Acertou: ${Trivia.BONUS_WINS} vitórias garantidas · Errou: ${Trivia.BONUS_LOSSES} derrotas</span></div>` : ''}
+      <div class="tq-meta"><b>${esc(c.label)}</b><span class="tq-diff d${c.d}">${Trivia.TIER_NAME[c.d]}</span><span class="tq-cat">${esc(c.cat)}</span></div>
+      <div class="tq-timer" role="timer" aria-label="Tempo restante"><div class="tq-bar"><span id="tqBar" style="width:${left / (c.limit * 10)}%"></span></div><b id="tqSec" class="num">${Math.ceil(left / 1000)}</b></div>
+      <p class="tq-q">${esc(c.q)}</p>
+      <div class="tq-opts">${c.opts.map((o, i) => `<button class="tq-opt" data-opt="${i}"><kbd>${'ABCD'[i]}</kbd><span>${esc(o)}</span></button>`).join('')}</div>
+      <p class="tq-hint">No teclado: 1 a 4 ou A a D</p>
+    </div>`;
+  }
+
+  function viewOffer() {
+    const c = state.inSeason.cur;
+    return `<div class="tq bonus offer">
+      <div class="bonus-badge"><b>★ Pergunta Bônus</b><span>Aparece de surpresa, no máximo uma vez por torneio</span></div>
+      <h2>Arrisca tudo?</h2>
+      <p class="muted">Antes da partida (${esc(c.label.toLowerCase())}) surgiu uma pergunta muito difícil, com só ${Trivia.TIMERS.BONUS} segundos para responder.</p>
+      <div class="odds">
+        <div class="odds-col"><span class="odds-h">Se acertar</span><div class="odd good"><b>+${Trivia.BONUS_WINS}</b><span>Vence esta partida e as próximas ${Trivia.BONUS_WINS - 1}, sem precisar responder.</span></div></div>
+        <div class="odds-col"><span class="odds-h">Se errar</span><div class="odd bad"><b>−${Trivia.BONUS_LOSSES}</b><span>Perde esta partida e a próxima (mesmo que seja em outro torneio).</span></div></div>
+      </div>
+      <div class="btn-row"><button class="btn btn-gold" id="bonusYes">Encarar a Pergunta Bônus</button><button class="btn btn-ghost" id="bonusNo">Jogar a partida normal</button></div>
+    </div>`;
+  }
+
+  function viewFeedback() {
+    const I = state.inSeason, f = I.fb, t = T[Math.min(I.ti, T.length - 1)];
+    let word, kind, detail = '';
+    if (f.skip) { word = 'Fora do Finals'; kind = 'neutral'; detail = `<p class="muted">Você fechou os 10 torneios em ${f.rank ? '#' + f.rank : 'sem ranking'}. Só os 8 melhores do ano jogam o ATP Finals.</p>`; }
+    else if (f.auto) {
+      word = f.auto === 'win' ? 'Vitória garantida' : 'Derrota do bônus'; kind = f.auto === 'win' ? 'win' : 'loss';
+      detail = `<p class="muted">${esc(f.label)}: ${f.auto === 'win' ? 'a Pergunta Bônus garantiu esta vitória' : 'a Pergunta Bônus errada custou esta partida'}.${f.left ? ` ${f.auto === 'win' ? 'Ainda resta' : 'Ainda falta'} ${f.left} ${f.auto === 'win' ? (f.left > 1 ? 'vitórias garantidas' : 'vitória garantida') : (f.left > 1 ? 'derrotas' : 'derrota')}.` : ''}</p>`;
+    } else {
+      word = f.ok ? 'Acertou!' : f.timeout ? 'Tempo esgotado' : 'Errou'; kind = f.ok ? 'win' : 'loss';
+      detail = `<p class="tq-q small">${esc(f.q)}</p>
+        <div class="tq-opts review">${f.opts.map((o, i) => `<div class="tq-opt ${i === f.ans ? 'right' : i === f.chosen ? 'wrong' : 'dim'}"><kbd>${'ABCD'[i]}</kbd><span>${esc(o)}</span>${i === f.ans ? '<em>Certa</em>' : i === f.chosen ? '<em>Sua resposta</em>' : ''}</div>`).join('')}</div>
+        <p class="muted tq-time">${f.timeout ? 'O relógio zerou antes da resposta.' : `Respondeu em ${fmtSec(f.ms)}.`}${f.bonus ? (f.ok ? ` Pergunta Bônus certa: esta vitória e mais ${Trivia.BONUS_WINS - 1} garantidas.` : ` Pergunta Bônus errada: esta derrota e mais ${Trivia.BONUS_LOSSES - 1}.`) : ''}</p>
+        ${f.note ? `<p class="tq-note">${esc(f.note)}</p>` : ''}`;
+    }
+    let outcome = '';
+    if (f.ended && f.result && f.result.label !== '-') {
+      const r = f.result;
+      outcome = r.label === 'W'
+        ? `<div class="tq-out W">Campeão ${deOf(t)} ${t.name}! <span>+${r.pts.toLocaleString('pt-BR')} pts · ${money(r.prize)}</span></div>`
+        : `<div class="tq-out">${t.type === 'finals' && r.label === 'RR' ? 'Eliminado na fase de grupos' : `Fim de torneio: ${resTitle[r.label].toLowerCase()}`} <span>+${r.pts.toLocaleString('pt-BR')} pts · ${money(r.prize)}</span></div>`;
+    } else if (f.advancedRR) outcome = `<div class="tq-out good">Classificado para a semifinal do ATP Finals!</div>`;
+    const lastT = I.ti + 1 >= T.length;
+    const next = f.ended ? (lastT ? 'Encerrar a temporada' : `Próximo torneio: ${T[I.ti + 1].name}`) : `Próxima partida: ${Trivia.matchLabel(state).toLowerCase()}`;
+    return `<div class="tq fb">
+      <div class="final-word ${kind}">${word}</div>
+      ${detail}${outcome}
+      <div class="actions"><button class="btn btn-primary" id="tqNext">${next}</button></div>
+    </div>`;
+  }
+
+  function viewTriviaReady() {
+    const s = state, first = !s.seasons.length;
+    let actions = `<button class="btn btn-primary" id="tStart">Começar a temporada ${s.year}</button>`;
+    if (s.age >= Trivia.RETIRE_BUTTON_AGE) {
+      actions += ui.confirm === 'retire'
+        ? `<div class="confirm"><strong>Encerrar a carreira agora, aos ${s.age} anos?</strong><div class="btn-row"><button class="btn btn-danger" id="retireYes">Sim, aposentar</button><button class="btn btn-ghost" id="retireNo">Continuar jogando</button></div></div>`
+        : `<button class="btn btn-ghost" id="retireBtn">Aposentar</button>`;
+    }
+    return `<span class="eyebrow">Temporada ${s.year} · ${s.age} anos</span>
+      <h2>${first ? 'Pronto para a estreia?' : 'Nova temporada'}</h2>
+      <p class="muted">${first ? 'São 4 Grand Slams, 6 Masters 1000 e o ATP Finals para os 8 melhores do ano. Cada rodada é uma pergunta: acerte para avançar.' : `Faltam ${Trivia.RETIRE_AGE - s.age} ${Trivia.RETIRE_AGE - s.age === 1 ? 'temporada' : 'temporadas'} até a aposentadoria obrigatória aos ${Trivia.RETIRE_AGE}.`}</p>
+      <div class="timers">${['R1', 'R2', 'R3', 'R16', 'QF', 'SF', 'F'].map(r => `<div><span>${r}</span><b>${Trivia.TIMERS[r]}s</b></div>`).join('')}</div>
+      ${s.autoWins || s.autoLosses ? `<div class="end-note">Efeito da Pergunta Bônus para esta temporada: ${s.autoWins ? `${s.autoWins} ${s.autoWins > 1 ? 'vitórias garantidas' : 'vitória garantida'}` : `${s.autoLosses} ${s.autoLosses > 1 ? 'derrotas' : 'derrota'}`}.</div>` : ''}
+      <div class="actions">${actions}</div>`;
+  }
+
+  function viewTriviaTable() {
+    const s = state, I = s.inSeason;
+    const accCell = v => v == null ? '–' : `${Math.round(v * 100)}%`;
+    const rows = s.seasons.map((se, i) => `<tr class="${ui.fresh && i === s.seasons.length - 1 ? 'fresh' : ''}">
+      <td class="c-year sticky">${se.year}</td><td class="c-age">${se.age}</td><td class="c-ovr">${accCell(se.acc)}</td>
+      ${T.map(t => `<td>${resChip(t, se.results[t.id], se.year)}</td>`).join('')}
+      <td class="c-rank">${se.rank ? se.rank : '–'}</td></tr>`).reverse().join('');
+    let pending = '';
+    if (I) {
+      const k = I.ti < T.length && I.tour ? Trivia.roundKey(state) : null;
+      pending = `<tr class="live"><td class="c-year sticky">${s.year}</td><td class="c-age">${s.age}</td><td class="c-ovr">${I.n ? accCell(I.ok / I.n) : '·'}</td>${T.map((t, i) => {
+        const r = I.results[t.id];
+        if (r) return `<td data-live="${i}">${resChip(t, r, s.year)}</td>`;
+        if (i === I.ti) return `<td data-live="${i}"><span class="res playing">${k ? ROUND_SHORT[k] : '·'}</span></td>`;
+        return `<td data-live="${i}"><span class="res wait">·</span></td>`;
+      }).join('')}<td class="c-rank">·</td></tr>`;
+    } else if (!s.retired) pending = `<tr class="pending"><td class="c-year sticky">${s.year}</td><td class="c-age">${s.age}</td><td class="c-ovr">·</td>${T.map(() => '<td>·</td>').join('')}<td class="c-rank">·</td></tr>`;
+    return `<div class="table-scroll"><table class="career">
+      <thead><tr><th class="sticky">Ano</th><th>Idade</th><th title="Aproveitamento nas perguntas">Acerto</th>${T.map(t => `<th title="${t.name}">${court(t.surface)}${t.short}</th>`).join('')}<th>Rank</th></tr></thead>
+      <tbody>${pending}${rows}</tbody></table></div>`;
+  }
+
+  function viewTriviaStats(tst) {
+    const bar = (label, m) => m && m.n ? `<div class="tbar"><span class="tbar-l">${label}</span><span class="tbar-t"><i style="width:${Math.round(m.ok / m.n * 100)}%"></i></span><span class="tbar-v">${m.ok}/${m.n} · <b>${pctAcc(m.ok / m.n)}</b></span></div>` : '';
+    const roundOrder = ['R1', 'R2', 'R3', 'R16', 'QF', 'SF', 'F', 'RR', 'BONUS'];
+    const roundName = { ...Trivia.ROUND_NAME, BONUS: 'Pergunta Bônus' };
+    const cats = Object.entries(tst.byCat).sort((a, b) => b[1].n - a[1].n);
+    const b = tst.bonus;
+    return `<h2 class="section-title">Desempenho no Trivia</h2>
+    <div class="big-stats tstats">
+      <div><span>Perguntas</span><b>${tst.n}</b></div>
+      <div><span>Acertos</span><b>${tst.ok}</b></div>
+      <div><span>Erros</span><b>${tst.wrong}</b></div>
+      <div><span>Tempo esgotado</span><b>${tst.timeouts}</b></div>
+      <div><span>Melhor sequência</span><b>${tst.bestStreak}</b></div>
+      <div><span>Tempo médio</span><b>${tst.n ? fmtSec(tst.avgMs) : '–'}</b></div>
+      <div><span>Mais rápida</span><b>${tst.fastest != null ? fmtSec(tst.fastest) : '–'}</b></div>
+      <div><span>Pergunta Bônus</span><b>${b.w}-${b.l}</b><small>${b.offered} oferecida${b.offered === 1 ? '' : 's'} · ${b.declined} recusada${b.declined === 1 ? '' : 's'}</small></div>
+    </div>
+    <div class="tbars-grid">
+      <section class="panel"><h3>Por dificuldade</h3>${[1, 2, 3, 4].map(d => bar(Trivia.TIER_NAME[d], tst.byTier[d])).join('') || '<p class="muted">Sem respostas.</p>'}</section>
+      <section class="panel"><h3>Por rodada</h3>${roundOrder.map(r => bar(roundName[r], tst.byRound[r])).join('') || '<p class="muted">Sem respostas.</p>'}</section>
+      <section class="panel"><h3>Por tema</h3>${cats.map(([c, m]) => bar(esc(c), m)).join('') || '<p class="muted">Sem respostas.</p>'}</section>
+    </div>
+    ${tst.missed.length ? `<details class="rdetails"><summary><span class="chev" aria-hidden="true">▸</span>Revise as ${tst.missed.length === 40 ? 'últimas 40 perguntas' : tst.missed.length + (tst.missed.length === 1 ? ' pergunta' : ' perguntas')} que você errou</summary>
+      <div class="missed">${tst.missed.map(m => `<div class="miss"><p>${esc(m.q)}</p><span><b>${esc(m.a)}</b> · ${m.year} · ${m.bonus ? 'Pergunta Bônus' : Trivia.ROUND_NAME[m.round]}${m.timeout ? ' · tempo esgotado' : ''}</span></div>`).join('')}</div></details>` : ''}`;
+  }
+
+  // relógio da pergunta
+  let tqTimer = null;
+  function stopTriviaClock() { clearInterval(tqTimer); tqTimer = null; }
+  function triviaAnswer(idx) {
+    stopTriviaClock();
+    if (!Trivia.answer(state, idx)) return;
+    render();
+    focusPanel();
+  }
+  function afterRenderTrivia() {
+    if (!isTrivia(state) || ui.view !== 'game' || !state.inSeason) return;
+    const I = state.inSeason;
+    // no celular, a tabela acompanha o torneio atual
+    const cur = document.querySelector(`[data-live="${Math.min(I.ti, T.length - 1)}"]`), box = document.querySelector('.table-scroll');
+    if (cur && box && box.scrollWidth > box.clientWidth) box.scrollLeft = Math.max(0, cur.offsetLeft - box.clientWidth / 2 + cur.offsetWidth / 2);
+    if (I.phase === 'feedback') { const nb = document.getElementById('tqNext'); if (nb && isWide()) nb.focus({ preventScroll: true }); return; }
+    if (I.phase !== 'question') return;
+    Trivia.startClock(state);
+    const c = I.cur;
+    const tick = () => {
+      const left = c.deadline - Date.now();
+      const bar = document.getElementById('tqBar'), sec = document.getElementById('tqSec');
+      if (bar) bar.style.width = `${Math.max(0, left / (c.limit * 10))}%`;
+      if (sec) { sec.textContent = Math.max(0, Math.ceil(left / 1000)); sec.parentElement.classList.toggle('warn', left <= 5000); }
+      if (left <= 0) triviaAnswer(null);
+    };
+    tick();
+    if (state.inSeason && state.inSeason.phase === 'question') tqTimer = setInterval(tick, 100);
+  }
+  function triviaClick(b) {
+    if (b.dataset.opt !== undefined) { triviaAnswer(+b.dataset.opt); return true; }
+    if (b.id === 'tqNext') { Trivia.cont(state); ui.fresh = !state.inSeason; render(); ui.fresh = false; if (!state.inSeason) focusPanel(); return true; }
+    if (b.id === 'bonusYes' || b.id === 'bonusNo') { Trivia.takeBonus(state, b.id === 'bonusYes'); render(); return true; }
+    if (b.id === 'tStart') { ui.confirm = null; Trivia.startSeason(state); render(); focusPanel(); return true; }
+    if (b.id === 'retireYes') { Trivia.retire(state); ui.confirm = null; ui.view = 'summary'; persist(); render(); scrollTo({ top: 0 }); return true; }
+    return false;
+  }
+  document.addEventListener('keydown', e => {
+    if (!isTrivia(state) || ui.view !== 'game' || !state.inSeason || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target.closest && e.target.closest('input, textarea')) return;
+    const I = state.inSeason, k = e.key.toLowerCase();
+    if (I.phase === 'question') {
+      const i = ['1', '2', '3', '4'].indexOf(k) >= 0 ? ['1', '2', '3', '4'].indexOf(k) : ['a', 'b', 'c', 'd'].indexOf(k);
+      if (i >= 0) { e.preventDefault(); triviaAnswer(i); }
+    } else if (I.phase === 'feedback' && (k === 'enter' || k === ' ') && !(e.target.closest && e.target.closest('button'))) {
+      e.preventDefault(); document.getElementById('tqNext')?.click();
+    }
+  });
+
   // ---------- resumo ----------
   function viewSummary() {
     const s = state, p = s.player, n = nation(p.nat);
@@ -545,7 +822,8 @@
     const status = Engine.careerStatus(st);
     const first = s.seasons[0], last = s.seasons[s.seasons.length - 1];
     const slams = ['AO', 'RG', 'WIM', 'USO'].map(id => T.find(t => t.id === id));
-    const tags = Engine.careerTags(s);
+    const tv = isTrivia(s), tst = tv ? Trivia.stats(s) : null;
+    const tags = tv ? Trivia.tags(s) : Engine.careerTags(s);
     const masters = T.filter(t => t.type !== 'major');
     return `
     <section class="status-hero">
@@ -560,7 +838,7 @@
       <div><span>Recorde V-D</span><b>${st.wins}-${st.losses}</b></div>
       <div><span>Prêmios</span><b>${money(st.prize)}</b></div>
       <div><span>Melhor rank</span><b>${st.bestRank ? '#' + st.bestRank : '–'}</b></div>
-      <div><span>Melhor OVR</span><b>${st.bestOvr}</b></div>
+      ${tv ? `<div><span>Aproveitamento</span><b>${tst.n ? pctAcc(tst.acc) : '–'}</b></div>` : `<div><span>Melhor OVR</span><b>${st.bestOvr}</b></div>`}
     </div>
 
     <h2 class="section-title">Grand Slams</h2>
@@ -573,7 +851,8 @@
       <div class="years">${x.years.length ? x.years.map(y => `<span class="yr ${y.w ? 'w' : 'f'}" title="${y.w ? 'Campeão' : 'Vice'} em ${y.y}">${y.y}</span>`).join('') : '<span class="muted" style="font-size:13px">Nenhuma final</span>'}</div>
     </div>`; }).join('')}</div>
 
-    ${s.rival ? `<h2 class="section-title">Rivalidade</h2>
+    ${tv ? viewTriviaStats(tst) : ''}
+    ${!tv && s.rival ? `<h2 class="section-title">Rivalidade</h2>
     <div class="rival-card"><span class="flag">${flag(rivalNation(s.rival)[0])}</span><div style="flex:1;min-width:0"><div class="rival-name">${RIVALS[s.rival].name}</div><span class="muted">Finais de Grand Slam contra o rival</span></div><div class="slam-titles" style="font-size:44px">${s.rivalRecord.w}-${s.rivalRecord.l}</div></div>
     ${(s.rivalLog || []).length ? `<details class="rdetails"><summary><span class="chev" aria-hidden="true">▸</span>Ver as ${s.rivalLog.length} ${s.rivalLog.length === 1 ? 'final' : 'finais'} de Grand Slam contra ${RIVALS[s.rival].name.split(' ').slice(-1)[0]}</summary><div class="rfinals">${s.rivalLog.map(f => { const t = T.find(x => x.id === f.tid);
       return `<div class="rfinal"><div class="rf-where">${court(t.surface)}<span><b>${t.name}</b> ${f.year}</span></div>
@@ -786,7 +1065,7 @@
       const sv = localGuestCareer(); if (!sv) return;
       home.importing = true; render();
       try {
-        const st = Engine.migrate(sv.state);
+        const st = loadState(sv.state);
         await Cloud.save(null, rowFor(st));
         try { localStorage.removeItem(SAVE_KEY); } catch (err) {}
         home.importing = false; await loadList();
@@ -798,15 +1077,18 @@
   function render() {
     const meta = document.getElementById('topMeta');
     document.body.dataset.view = (ui.view === 'game' && state) ? 'game' : 'other';
+    document.body.dataset.mode = isTrivia(state) && ui.view !== 'home' ? 'trivia' : 'full';
+    stopTriviaClock();
     if (ui.view === 'home') { $app.innerHTML = viewHome(); meta.textContent = account.mode === 'user' ? 'Minhas carreiras' : 'Simulador de carreira'; paintTop(); return; }
     paintTop();
     if (ui.view === 'create' || !state) { $app.innerHTML = viewCreate(); meta.textContent = 'Simulador de carreira'; }
     else if (ui.view === 'summary') { $app.innerHTML = viewSummary(); meta.textContent = 'Resumo da carreira'; }
-    else { $app.innerHTML = viewGame(); meta.textContent = state.retired ? 'Carreira encerrada' : `Temporada ${state.year}`; }
+    else { $app.innerHTML = viewGame(); meta.textContent = (isTrivia(state) ? 'Trivia · ' : '') + (state.retired ? 'Carreira encerrada' : `Temporada ${state.year}`); }
+    afterRenderTrivia();
   }
 
   $app.addEventListener('input', e => {
-    if (e.target.id === 'f-name') { draft.name = e.target.value; const b = document.getElementById('startBtn'); const ready = draft.name.trim() && draft.ovr && draft.age; b.disabled = !ready; }
+    if (e.target.id === 'f-name') { draft.name = e.target.value; const b = document.getElementById('startBtn'); b.disabled = !draftReady(); }
     if (e.target.id === 'natQ') {
       draft.natQ = e.target.value; const pos = e.target.selectionStart; render();
       const q = document.getElementById('natQ'); q.focus(); q.setSelectionRange(pos, pos);
@@ -820,11 +1102,17 @@
     if (b.dataset.bh) { draft.backhand = b.dataset.bh; render(); return; }
     if (b.dataset.exp) { draft.exp = b.dataset.exp; render(); return; }
     if (b.dataset.style) { draft.style = b.dataset.style; render(); return; }
+    if (b.dataset.mode) { draft.mode = b.dataset.mode; render(); return; }
     if (b.dataset.draw) { runDraw(b.dataset.draw); return; }
+    if (b.id === 'startBtn' && draft.mode === 'trivia') {
+      state = Trivia.newCareer({ name: draft.name.trim(), nat: draft.nat, hand: draft.hand, backhand: draft.backhand }, draft.age);
+      ui.view = 'game'; ui.confirm = null; persist(); render(); scrollTo({ top: 0 }); return;
+    }
     if (b.id === 'startBtn') {
       state = Engine.newCareer({ name: draft.name.trim(), nat: draft.nat, hand: draft.hand, backhand: draft.backhand, exp: draft.exp, style: draft.style }, draft.ovr, draft.age);
       ui.view = 'game'; ui.confirm = null; persist(); render(); scrollTo({ top: 0 }); return;
     }
+    if (isTrivia(state) && triviaClick(b)) return;
     if (b.dataset.ev !== undefined) { Engine.resolveEvent(state, b.dataset.ev === '1'); persist(); render(); return; }
     if (b.id === 'simBtn') { if (state.awaitingAdvance) return; ui.confirm = null; ui.chain = state.player.exp === 'express' ? { left: 3, total: 3, skip: false, years: [] } : null; playOn(); return; }
     if (b.id === 'advanceBtn') { state.awaitingAdvance = null; persist(); render(); focusPanel(); return; }
@@ -842,8 +1130,9 @@
       ui.confirm = 'new'; render(); return;
     }
     if (b.id === 'newYes') {
+      const lastMode = isTrivia(state) ? 'trivia' : 'full';
       state = null; ui = { view: 'create', confirm: null };
-      draft = freshDraft();
+      draft = { ...freshDraft(), mode: lastMode };
       persist(); render(); scrollTo({ top: 0 }); return;
     }
   });
@@ -981,7 +1270,7 @@
     }
     const saved = (data && data.state !== undefined) ? data : loadSave();
     if (saved && saved.state) {
-      state = Engine.migrate(saved.state);
+      state = loadState(saved.state);
       ui.view = saved.view === 'summary' && state.retired ? 'summary' : 'game';
       if (state.pendingFinal) ui.modal = 'rival';
     }

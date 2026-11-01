@@ -453,3 +453,110 @@ table.career { border-collapse: separate; border-spacing: 0; width: 100%; min-wi
 .pw-toggle { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); height: 38px; padding: 0 12px; border: 0; border-radius: 9px; background: var(--line); color: var(--fg); font: 600 13px var(--f-body); }
 .linkish { justify-self: start; background: none; border: 0; padding: 4px 0; color: var(--muted); font: 600 14px var(--f-body); text-decoration: underline; text-underline-offset: 3px; }
 .linkish:hover { color: var(--fg); }
+
+/* ===== Modo Trivia ===== */
+:root { --trivia: #3FD0C9; --bonus: #F2B53A; }
+.mode-grid { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; margin-bottom: 16px; }
+.mode-card { display: grid; gap: 4px; align-content: start; padding: 16px; text-align: left; border-radius: var(--r-lg); border: 1.5px solid var(--line); background: var(--panel); min-width: 0; }
+.mode-card strong { font: 900 30px/1 var(--f-display); text-transform: uppercase; }
+.mode-card span:last-child { color: var(--muted); font-size: 14px; }
+.mode-k { font: 600 12px var(--f-data); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.mode-card[aria-checked="true"] { border-color: var(--btn); background: color-mix(in srgb, var(--btn) 7%, var(--panel)); }
+.mode-card.trivia[aria-checked="true"] { border-color: var(--trivia); background: color-mix(in srgb, var(--trivia) 9%, var(--panel)); }
+.mode-card.trivia[aria-checked="true"] strong { color: var(--trivia); }
+@media (max-width: 520px) { .mode-grid { grid-template-columns: 1fr; } .mode-card strong { font-size: 26px; } }
+@media (min-width: 700px) { .draws.one { grid-template-columns: 1fr; max-width: 520px; } }
+.trivia-rules { margin-top: 16px; display: grid; gap: 8px; border-color: color-mix(in srgb, var(--trivia) 35%, var(--line)); }
+.trivia-rules ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: var(--muted); }
+.trivia-rules b { color: var(--fg); } .trivia-rules b.gold { color: var(--bonus); }
+.pill.trivia { border-color: var(--trivia); color: var(--trivia); }
+.pill.bonus-pill { border-color: var(--bonus); color: var(--bonus); }
+.ovr.acc-box { background: linear-gradient(160deg, #3FD0C9, #146B79); color: #06201f; }
+.ovr.acc-box b i { font-style: normal; font-size: .45em; margin-left: 1px; }
+.tagchip.k-trivia { color: var(--trivia); }
+
+/* painel da pergunta */
+.tq-tour { display: flex; align-items: center; gap: 12px; }
+.tq-tour .court { width: 44px; height: 27px; flex: none; }
+.tq-tour-main { min-width: 0; display: grid; gap: 2px; }
+.tq-tname { font: 900 clamp(28px, 6vw, 36px)/1 var(--f-display); text-transform: uppercase; }
+.tq-path { display: flex; gap: 4px; flex-wrap: wrap; }
+.tq-path i { flex: 1 1 0; min-width: 34px; text-align: center; padding: 4px 0; border-radius: 6px; font: 700 12px var(--f-data); font-style: normal; letter-spacing: .04em; background: var(--panel-2); color: var(--faint); border: 1px solid var(--line); }
+.tq-path i.done { background: color-mix(in srgb, var(--good) 22%, var(--panel-2)); color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, var(--line)); }
+.tq-path i.cur { background: var(--btn); color: var(--btn-fg); border-color: var(--btn); }
+.tq-path i.bye { opacity: .45; text-decoration: line-through; }
+.tq { display: grid; gap: 14px; }
+.tq-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-family: var(--f-data); }
+.tq-meta b { font: 800 20px var(--f-display); text-transform: uppercase; margin-right: auto; }
+.tq-diff, .tq-cat { font: 600 12px var(--f-data); letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border-radius: var(--r-pill); border: 1px solid var(--line); color: var(--muted); }
+.tq-diff.d1 { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
+.tq-diff.d2 { color: var(--hard); border-color: color-mix(in srgb, var(--hard) 45%, var(--line)); }
+.tq-diff.d3 { color: var(--clay); border-color: color-mix(in srgb, var(--clay) 45%, var(--line)); }
+.tq-diff.d4 { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+.tq-timer { display: flex; align-items: center; gap: 10px; }
+.tq-bar { flex: 1; height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; }
+.tq-bar span { display: block; height: 100%; background: var(--trivia); border-radius: 5px; transition: width .1s linear, background .3s; }
+.tq-timer b { font: 900 30px/1 var(--f-display); min-width: 2ch; text-align: right; }
+.tq-timer.warn .tq-bar span { background: var(--bad); }
+.tq-timer.warn b { color: var(--bad); animation: pulse .6s ease-in-out infinite; }
+.tq-q { font-size: 19px; font-weight: 600; line-height: 1.35; text-wrap: pretty; }
+.tq-q.small { font-size: 16px; color: var(--muted); font-weight: 500; }
+.tq-opts { display: grid; gap: 8px; }
+.tq-opt { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 10px; width: 100%; min-height: 54px; padding: 10px 12px; text-align: left; border-radius: var(--r-md); border: 1.5px solid var(--line); background: var(--panel-2); font-size: 16px; font-weight: 600; }
+button.tq-opt:hover { border-color: var(--btn); }
+button.tq-opt:active { transform: scale(.99); }
+.tq-opt kbd { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--line); font: 800 15px var(--f-data); color: var(--fg); }
+.tq-opt em { font: 700 11px var(--f-data); font-style: normal; letter-spacing: .08em; text-transform: uppercase; }
+.tq-opt.right { border-color: var(--good); background: color-mix(in srgb, var(--good) 14%, var(--panel-2)); }
+.tq-opt.right kbd { background: var(--good); color: #062014; } .tq-opt.right em { color: var(--good); }
+.tq-opt.wrong { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, var(--panel-2)); }
+.tq-opt.wrong kbd { background: var(--bad); color: #fff; } .tq-opt.wrong em { color: var(--bad); }
+.tq-opt.dim { opacity: .5; }
+.tq-opts.review .tq-opt { min-height: 44px; font-size: 15px; }
+.tq-hint { font-size: 12px; color: var(--faint); text-align: center; }
+@media (hover: none) { .tq-hint { display: none; } }
+.tq-time { font-size: 14px; }
+.tq-note { font-size: 14px; padding: 10px 12px; border-radius: var(--r-md); background: var(--panel-2); border-left: 3px solid var(--trivia); }
+.tq-out { padding: 12px 14px; border-radius: var(--r-md); background: var(--panel-2); border: 1px solid var(--line); font: 800 20px/1.15 var(--f-display); text-transform: uppercase; display: grid; gap: 2px; }
+.tq-out span { font: 600 14px var(--f-data); letter-spacing: .05em; color: var(--muted); }
+.tq-out.W { border-color: var(--gold); color: var(--gold); background: color-mix(in srgb, var(--gold) 10%, var(--panel-2)); }
+.tq-out.good { border-color: var(--good); color: var(--good); }
+.tq.fb .final-word { font-size: clamp(40px, 9vw, 58px); }
+.final-word.neutral { color: var(--muted); }
+.tally { padding-top: 12px; border-top: 1px solid var(--line); }
+.timers { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.timers div { display: grid; text-align: center; padding: 8px 0; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--line); }
+.timers span { font: 600 11px var(--f-data); letter-spacing: .06em; color: var(--muted); }
+.timers b { font: 800 18px var(--f-display); }
+
+/* Pergunta Bônus: visual próprio */
+.tvivo.is-bonus { border-color: var(--bonus); box-shadow: 0 0 0 1px var(--bonus), 0 0 32px -8px color-mix(in srgb, var(--bonus) 70%, transparent); background: radial-gradient(120% 60% at 50% 0%, color-mix(in srgb, var(--bonus) 13%, var(--panel)), var(--panel)); }
+.bonus-badge { display: grid; gap: 2px; padding: 10px 14px; border-radius: var(--r-md); background: linear-gradient(100deg, #F2B53A, #E07B39); color: #2a1300; }
+.bonus-badge b { font: 900 22px/1 var(--f-display); text-transform: uppercase; letter-spacing: .02em; }
+.bonus-badge span { font: 600 13px var(--f-data); letter-spacing: .03em; }
+.tq.bonus .tq-bar span { background: var(--bonus); }
+.tq.bonus .tq-opt { border-color: color-mix(in srgb, var(--bonus) 35%, var(--line)); }
+.tq.bonus button.tq-opt:hover { border-color: var(--bonus); }
+.btn-gold { background: linear-gradient(100deg, #F2B53A, #E07B39); color: #2a1300; }
+.btn-gold:hover { filter: brightness(1.06); }
+
+/* resumo: desempenho no Trivia */
+.tstats { grid-template-columns: repeat(2, 1fr); }
+@media (min-width: 700px) { .tstats { grid-template-columns: repeat(4, 1fr); } }
+.tstats small { color: var(--muted); font-size: 12px; }
+.tbars-grid { display: grid; gap: 12px; margin-top: 12px; grid-template-columns: 1fr; }
+@media (min-width: 900px) { .tbars-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.tbars-grid .panel { display: grid; gap: 10px; align-content: start; }
+.tbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "l v" "t t"; gap: 4px 10px; font-size: 14px; }
+.tbar-l { grid-area: l; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbar-v { grid-area: v; font-family: var(--f-data); color: var(--muted); font-variant-numeric: tabular-nums; }
+.tbar-v b { color: var(--fg); }
+.tbar-t { grid-area: t; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.tbar-t i { display: block; height: 100%; background: var(--trivia); border-radius: 4px; }
+.missed { display: grid; gap: 8px; margin-top: 10px; }
+.miss { padding: 10px 12px; border-radius: var(--r-md); background: var(--panel-2); border: 1px solid var(--line); display: grid; gap: 4px; }
+.miss span { font-size: 13px; color: var(--muted); } .miss b { color: var(--good); }
+@media (min-width: 1100px) {
+  body[data-mode="trivia"] .main-row { grid-template-columns: clamp(380px, 33vw, 500px) minmax(0, 1fr); }
+  .tvivo .tq-q { font-size: 18px; }
+}

@@ -4,7 +4,7 @@ const Cloud = (() => {
   const enabled = !!(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase && window.supabase.createClient);
   let client = null;
   const TABLE = 'careers';
-  const LIST_COLS = 'id,name,nat,status,retired,favorite,seasons,age,ovr,majors,titles,best_rank,updated_at';
+  const LIST_COLS = 'id,name,nat,status,retired,favorite,seasons,age,ovr,majors,titles,best_rank,mode,accuracy,updated_at';
 
   // Mensagens de erro em português, sem expor detalhes técnicos
   function friendly(err) {

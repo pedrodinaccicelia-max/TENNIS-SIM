@@ -2,7 +2,18 @@
 
 O detalhamento de cada versão está nos documentos de [`docs/regras/`](docs/regras/).
 
-## Contas (em desenvolvimento)
+## V8: modo Trivia
+- Novo modo de jogo **Trivia**, escolhido na criação da carreira (o jogo de antes passa a se chamar **FULL Sim**).
+- Cada rodada é uma pergunta de 4 alternativas; errar ou deixar o tempo acabar elimina do torneio.
+- Tempo por rodada: 30, 26, 22, 19, 16, 13 e 10 segundos (R1 até a final); no ATP Finals, 16 s nos grupos, 13 s na semi e 10 s na final.
+- Dificuldade cresce com a rodada; nos Slams, parte das perguntas é sobre o próprio torneio.
+- Banco com cerca de 2.300 perguntas (finais de Grand Slam da Era Aberta, ATP/WTA Finals, Copa Davis, números 1 do ranking e perguntas escritas à mão). Nenhuma se repete na mesma carreira.
+- **Pergunta Bônus:** aparece de surpresa (7% antes de cada partida, no máximo 1 por torneio), 10 s, muito difícil. Acertou: 3 vitórias garantidas. Errou: 2 derrotas. Pode ser recusada.
+- Sem OVR, eventos, lesões ou rivais. Aposentadoria a partir dos 30 e obrigatória aos 38.
+- Resumo da carreira com o desempenho no Trivia (acertos por dificuldade, rodada e tema, tempos, Pergunta Bônus e revisão das perguntas erradas) e 6 tags próprias.
+- "Minhas carreiras" mostra o modo e o aproveitamento de cada carreira (colunas `mode` e `accuracy` no Supabase).
+
+## Contas
 - Tela inicial com "Entrar com Google", e-mail e senha (Entrar / Criar conta / Esqueci a senha) ou "Jogar como convidado".
 - O botão do Google aparece sozinho quando o provedor estiver ativado no Supabase.
 - "Minhas carreiras": lista com favoritas, continuar, ver resumo e apagar.

@@ -1,6 +1,9 @@
 # Tennis Simulator
 
-Simulador de carreira de tênis no navegador. Você cria o jogador, sorteia o overall e a idade de estreia, escolhe o estilo de jogo e toma as decisões que definem títulos, lesões, rivalidades e o seu lugar no ranking, temporada a temporada, até a aposentadoria.
+Simulador de carreira de tênis no navegador, com dois modos:
+
+- **FULL Sim:** você cria o jogador, sorteia o overall e a idade de estreia, escolhe o estilo de jogo e toma as decisões que definem títulos, lesões, rivalidades e o seu lugar no ranking, temporada a temporada, até a aposentadoria.
+- **Trivia:** sem overall e sem sorte. Cada rodada de cada torneio é uma pergunta de tênis com o relógio correndo: acertou, avança; errou, está fora.
 
 Funciona no computador e no celular, sem instalar nada.
 
@@ -26,10 +29,15 @@ index.html            Página do jogo
 css/styles.css        Visual (cores, tipografia, layout de PC e celular)
 js/config.js          Endereço e chave pública do Supabase
 js/engine.js          Motor da simulação: OVR, torneios, ranking, eventos, rivais, tags
+js/trivia.js          Modo Trivia: gera o banco de perguntas e controla a carreira (tempo, bônus, estatísticas)
+js/trivia-data.js     Dados históricos usados nas perguntas (gerado por tools/build-data.js a partir de data/raw.json)
+js/trivia-curated.js  Perguntas escritas à mão (regras, recordes, história, curiosidades)
 js/cloud.js           Login e carreiras na nuvem (Supabase)
 js/app.js             Telas e fluxo: tela inicial, criação, painel em etapas, temporada ao vivo, resumo
 supabase/migrations/  Estrutura do banco (tabela de carreiras e regras de acesso)
 tests/simulacao.js    Simulação em massa para calibrar as probabilidades
+tests/trivia.js       Carreiras simuladas do Trivia (confere que nenhuma pergunta se repete)
+tools/                Scripts: gerar os dados do Trivia e montar uma versão em arquivo único
 docs/regras/          Documento de regras de cada versão (V3 em diante)
 docs/referencias/     Regras e telas originais que deram início ao projeto
 CHANGELOG.md          O que mudou em cada versão
@@ -50,6 +58,7 @@ As regras completas da versão atual estão em [`docs/regras/`](docs/regras/). E
 - **Play Style:** bônus e penalidades por superfície (rápida, saibro, grama).
 - **Eventos:** decisões com odds visíveis, eventos especiais por idade e conquistas, e rivais com finais de Grand Slam decididas pela sua postura.
 - **Resumo da carreira:** status (de Ruim a Lenda), tags de conquistas e o histórico completo.
+- **Trivia:** cerca de 2.300 perguntas em 4 níveis de dificuldade, tempo de 30 s na 1ª rodada até 10 s na final, Pergunta Bônus (3 vitórias garantidas ou 2 derrotas), aposentadoria aos 38 anos e estatísticas de acerto no resumo.
 
 ## Próximos passos
 

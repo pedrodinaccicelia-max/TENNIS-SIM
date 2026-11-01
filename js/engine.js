@@ -581,7 +581,7 @@ const Engine = (() => {
   }
 
   let save = null;
-  return { finalScore, TAGS, careerTags, SLAM_MIN_OVR, RIVAL_TOP, TOURNAMENTS, EVENTS, STYLES, RIVALS, RIVAL_CHOICES, RIVAL_FX, SURFACE_NAME, GROWTH_WEIGHTS,
+  return { ROUNDS, POINTS, PRIZE, FINALS, finalScore, TAGS, careerTags, SLAM_MIN_OVR, RIVAL_TOP, TOURNAMENTS, EVENTS, STYLES, RIVALS, RIVAL_CHOICES, RIVAL_FX, SURFACE_NAME, GROWTH_WEIGHTS,
            getEvent, eventOdds, effectText, titleProb, rankFromPoints, newCareer, migrate, resolveEvent,
            ackRival, resolveRivalFinal, simulateSeason, retire, careerStats, careerStatus, surfaceMod, surfaceOvr, randInt,
            setSaver: fn => { save = fn; } };

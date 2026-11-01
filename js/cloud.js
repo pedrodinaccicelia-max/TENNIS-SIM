@@ -102,7 +102,7 @@ const Cloud = (() => {
   async function shareCareer(row) {
     const { data, error } = await client.from(SHARES).insert(row).select('id').single();
     if (error) {
-      if (error.code === '42501' || /row-level security/i.test(error.message || '')) throw new Error('Só carreiras encerradas e salvas na sua conta podem ser compartilhadas. Espere o "Salvo na nuvem" e tente de novo.');
+      if (error.code === '42501' || /row-level security/i.test(error.message || '')) throw new Error('Só carreiras encerradas e criadas com a sua conta podem ser compartilhadas. Se acabou de aposentar, espere o "Salvo na nuvem" e tente de novo.');
       throw new Error(friendly(error));
     }
     return data.id;

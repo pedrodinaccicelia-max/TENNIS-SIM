@@ -936,8 +936,11 @@
   // bloco "Compartilhar" no resumo da sua carreira encerrada
   function viewShareBox(s) {
     if (!Cloud.enabled || !s.retired) return '';
-    if (account.mode !== 'user') return `<section class="panel share-box"><div><span class="eyebrow">Comunidade</span><h3>Mostre esta carreira para outros jogadores</h3>
-      <p class="muted">Entre com uma conta para compartilhar carreiras encerradas por link e na página da Comunidade.</p></div>
+    if (account.mode !== 'user') return `<section class="panel share-box"><div><span class="eyebrow">Comunidade</span><h3>Compartilhar é só para quem tem conta</h3>
+      <p class="muted">Carreiras jogadas como convidado não podem ser compartilhadas. Crie uma conta e comece uma carreira nova para publicar na Comunidade. Ver as carreiras dos outros é livre.</p></div>
+      <div class="btn-row"><button class="btn btn-ghost" id="toCommunity2">Ver a Comunidade</button></div></section>`;
+    if (s.createdAs === 'guest') return `<section class="panel share-box"><div><span class="eyebrow">Comunidade</span><h3>Carreira de convidado</h3>
+      <p class="muted">Esta carreira começou no modo convidado e foi salva na conta depois, por isso não pode ser compartilhada. Só carreiras criadas com a conta entram na Comunidade.</p></div>
       <div class="btn-row"><button class="btn btn-ghost" id="toCommunity2">Ver a Comunidade</button></div></section>`;
     const sid = s.cloudId && shareMap[s.cloudId];
     const note = shareUi.err ? `<p class="form-err" role="alert">${esc(shareUi.err)}</p>` : shareUi.msg ? `<p class="share-ok">${esc(shareUi.msg)}</p>` : '';
@@ -1211,7 +1214,7 @@
       <div><span class="eyebrow">Conectado como ${esc(account.user.email || '')}</span><h1>Minhas carreiras</h1></div>
       <div class="btn-row"><button class="btn btn-primary" id="newFromHome">Nova carreira</button><button class="btn btn-ghost" id="signOut">Sair</button></div>
     </section>
-    ${local ? `<section class="panel import-card"><div><strong>Você tem uma carreira de convidado neste aparelho${isTrivia(local.state) ? ' (Trivia)' : ''}:</strong> ${esc(local.state.player.name)}, ${local.state.retired ? 'aposentado' : `${local.state.age} anos`}. Quer guardá-la na sua conta?</div>
+    ${local ? `<section class="panel import-card"><div><strong>Você tem uma carreira de convidado neste aparelho${isTrivia(local.state) ? ' (Trivia)' : ''}:</strong> ${esc(local.state.player.name)}, ${local.state.retired ? 'aposentado' : `${local.state.age} anos`}. Quer guardá-la na sua conta? Ela fica salva, mas não poderá ir para a Comunidade.</div>
       <div class="btn-row"><button class="btn btn-primary btn-sm" id="importLocal" ${home.importing ? 'disabled' : ''}>${home.importing ? 'Salvando…' : 'Salvar na minha conta'}</button></div></section>` : ''}
     ${body}`;
   }
@@ -1295,7 +1298,8 @@
       home.importing = true; render();
       try {
         const st = loadState(sv.state);
-        await Cloud.save(null, rowFor(st));
+        st.createdAs = 'guest';                       // carreira de convidado: nunca vai para a Comunidade
+        await Cloud.save(null, { ...rowFor(st), from_guest: true });
         try { localStorage.removeItem(SAVE_KEY); } catch (err) {}
         home.importing = false; await loadList();
       } catch (err) { home.importing = false; home.listErr = err.message; render(); }
@@ -1338,10 +1342,12 @@
     if (b.dataset.draw) { runDraw(b.dataset.draw); return; }
     if (b.id === 'startBtn' && draft.mode === 'trivia') {
       state = Trivia.newCareer({ name: draft.name.trim(), nat: draft.nat }, Trivia.START_AGE);
+      state.createdAs = account.mode === 'user' ? 'account' : 'guest';
       ui.view = 'game'; ui.confirm = null; persist(); render(); scrollTo({ top: 0 }); return;
     }
     if (b.id === 'startBtn') {
       state = Engine.newCareer({ name: draft.name.trim(), nat: draft.nat, hand: draft.hand, backhand: draft.backhand, exp: draft.exp, style: draft.style }, draft.ovr, draft.age);
+      state.createdAs = account.mode === 'user' ? 'account' : 'guest';
       ui.view = 'game'; ui.confirm = null; persist(); render(); scrollTo({ top: 0 }); return;
     }
     if (b.dataset.share || b.dataset.cmode || COMM_IDS.has(b.id)) { communityClick(b); return; }

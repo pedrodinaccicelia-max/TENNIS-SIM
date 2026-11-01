@@ -3,6 +3,7 @@
 O detalhamento de cada versão está nos documentos de [`docs/regras/`](docs/regras/).
 
 ## V10: Comunidade
+- Só quem tem conta publica: carreiras de convidado não podem ser compartilhadas, nem depois de salvas na conta (coluna `from_guest`, migração 006). Convidados podem ver a Comunidade normalmente.
 - Carreiras encerradas (aposentadas) podem ser compartilhadas: o resumo ganha o bloco "Compartilhar na Comunidade", com link próprio e opção de tirar do ar.
 - Página **Comunidade** (botão no topo e link `#comunidade`): carreiras compartilhadas dos dois modos, com filtro por modo e ordem (mais recentes, mais Grand Slams, mais títulos, melhor ranking, melhor acerto no Trivia).
 - Link da carreira (`#c-…`) abre o resumo completo para qualquer pessoa, mesmo sem login. A revisão das perguntas erradas do Trivia fica de fora.

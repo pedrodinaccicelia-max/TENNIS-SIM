@@ -44,12 +44,12 @@ Deno.serve(async (req: Request) => {
   // dados do jogo (as chaves estrangeiras também apagam em cascata; aqui fica explícito)
   for (const [table, column] of [["share_reports", "reporter"], ["shared_careers", "user_id"], ["careers", "user_id"]]) {
     const { error } = await admin.from(table).delete().eq(column, user.id);
-    if (error) return reply({ error: "data_delete_failed", table }, 500);
+    if (error) { console.error("delete-account: falha ao apagar", table, error.code, error.message); return reply({ error: "data_delete_failed", table }, 500); }
   }
 
   // por fim, o login (e-mail, Google, sessões)
   const { error: delError } = await admin.auth.admin.deleteUser(user.id);
-  if (delError) return reply({ error: "user_delete_failed" }, 500);
+  if (delError) { console.error("delete-account: falha ao apagar usuário", delError.message); return reply({ error: "user_delete_failed" }, 500); }
 
   return reply({ ok: true });
 });

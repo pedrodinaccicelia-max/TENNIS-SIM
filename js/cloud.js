@@ -133,5 +133,17 @@ const Cloud = (() => {
     throw new Error(friendly(error));
   }
 
-  return { shareCareer, unshare, getShare, listShares, sharedFor, report, enabled, init, providers, signInPassword, signUp, signInGoogle, resetPassword, updatePassword, signOut, list, load, save, remove, setFavorite };
+  // exclui a conta e todos os dados (função delete-account no servidor)
+  async function deleteAccount() {
+    const { data, error } = await client.functions.invoke('delete-account', { body: { confirm: 'EXCLUIR' } });
+    if (error || !data || !data.ok) {
+      let code = data && data.error;
+      try { if (!code && error && error.context && error.context.json) code = (await error.context.json()).error; } catch (e) {}
+      if (code === 'not_authenticated') throw new Error('Sua sessão expirou. Entre de novo e repita a exclusão.');
+      throw new Error('Não foi possível excluir a conta agora. Tente de novo em instantes.');
+    }
+    try { await client.auth.signOut({ scope: 'local' }); } catch (e) {}
+  }
+
+  return { deleteAccount, shareCareer, unshare, getShare, listShares, sharedFor, report, enabled, init, providers, signInPassword, signUp, signInGoogle, resetPassword, updatePassword, signOut, list, load, save, remove, setFavorite };
 })();

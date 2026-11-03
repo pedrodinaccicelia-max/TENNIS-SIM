@@ -3,6 +3,7 @@
 O detalhamento de cada versão está nos documentos de [`docs/regras/`](docs/regras/).
 
 ## V10: Comunidade
+- **Excluir conta:** em "Minhas carreiras" (e pelo link `#excluir-conta`), o jogador apaga a conta e tudo dela: login, carreiras, carreiras compartilhadas e denúncias. Feito pela função `delete-account` no Supabase.
 - Só quem tem conta publica: carreiras de convidado não podem ser compartilhadas, nem depois de salvas na conta (coluna `from_guest`, migração 006). Convidados podem ver a Comunidade normalmente.
 - Carreiras encerradas (aposentadas) podem ser compartilhadas: o resumo ganha o bloco "Compartilhar na Comunidade", com link próprio e opção de tirar do ar.
 - Página **Comunidade** (botão no topo e link `#comunidade`): carreiras compartilhadas dos dois modos, com filtro por modo e ordem (mais recentes, mais Grand Slams, mais títulos, melhor ranking, melhor acerto no Trivia).

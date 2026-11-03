@@ -85,4 +85,10 @@ Crie uma conta com e-mail e senha (ou use o Google) e você cai em "Minhas carre
 | Tirar da Comunidade / apagar a carreira | Apaga a linha em `shared_careers` |
 | Denunciar | Cria uma linha em `share_reports`; com 3 denúncias a carreira fica oculta (`hidden`) |
 
+| Excluir minha conta (Minhas carreiras ou link `#excluir-conta`) | Chama a função `delete-account`, que confere o token, apaga `share_reports`, `shared_careers` e `careers` do jogador e depois o usuário em `auth.users` |
+
+A função `delete-account` está em `supabase/functions/delete-account/` e já está publicada no projeto (01/11/2026, sem verificação automática de JWT porque ela mesma confere o token). Ela usa a chave `service_role`, que existe só no servidor do Supabase. Para publicar de novo pelo terminal: `supabase functions deploy delete-account --no-verify-jwt`.
+
+Para a Play Store, o endereço de exclusão de conta é `https://tennissimulator.com.br/#excluir-conta`.
+
 Para revisar uma carreira ocultada: **Table Editor > shared_careers**, filtre `hidden = true`, confira e mude para `false` (ou apague a linha).

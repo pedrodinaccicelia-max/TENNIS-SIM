@@ -50,7 +50,8 @@
   // authMode: 'login' | 'signup' | 'reset' (esqueci a senha) | 'newpass' (criar nova senha pelo link)
   let home = { checking: Cloud.enabled, authMode: 'login', email: '', err: '', info: '', busy: false, showPw: false,
                prov: { google: false, email: true, autoconfirm: false },
-               list: null, listErr: '', loading: false, confirmDel: null, importing: false };
+               list: null, listErr: '', loading: false, confirmDel: null, importing: false,
+               delAcc: { open: false, busy: false, err: '' } };
 
   function persist() {
     if (account.mode === 'user') { if (state) scheduleCloudSave(); return; }
@@ -168,7 +169,8 @@
       flushCloud(); clearLive();
       account = { mode: 'user', user }; state = null; home.err = ''; home.info = ''; home.authMode = 'login';
       ui = { view: 'home', confirm: null, modal: null, fresh: false };
-      loadList();
+      if (home.pendingDelete || location.hash === '#excluir-conta') { home.pendingDelete = false; home.delAcc = { open: true, busy: false, err: '' }; }
+      loadList().then(() => { if (home.delAcc.open) openDeleteAccount(); });
     } else if (!user && account.mode === 'user') {
       account = { mode: null, user: null }; state = null; home.list = null;
       ui = { view: 'home', confirm: null, modal: null, fresh: false };
@@ -856,6 +858,13 @@
     const m = /^c-([0-9a-f-]{36})$/i.exec(h);
     if (m) { openShared(m[1], true); return true; }
     if (h === 'comunidade') { openCommunity(true); return true; }
+    if (h === 'excluir-conta') {
+      // link direto (também usado na Play Store): com conta, abre a exclusão; sem conta, pede para entrar
+      clearLive(); ui.view = 'home'; ui.prev = null;
+      if (account.mode === 'user') { if (home.list === null) loadList(); openDeleteAccount(); }
+      else { home.pendingDelete = true; home.authMode = 'login'; home.info = 'Para excluir a sua conta, entre nela primeiro.'; render(); }
+      return true;
+    }
     return false;
   }
   function setHash(h) {
@@ -1216,7 +1225,52 @@
     </section>
     ${local ? `<section class="panel import-card"><div><strong>Você tem uma carreira de convidado neste aparelho${isTrivia(local.state) ? ' (Trivia)' : ''}:</strong> ${esc(local.state.player.name)}, ${local.state.retired ? 'aposentado' : `${local.state.age} anos`}. Quer guardá-la na sua conta? Ela fica salva, mas não poderá ir para a Comunidade.</div>
       <div class="btn-row"><button class="btn btn-primary btn-sm" id="importLocal" ${home.importing ? 'disabled' : ''}>${home.importing ? 'Salvando…' : 'Salvar na minha conta'}</button></div></section>` : ''}
-    ${body}`;
+    ${body}
+    ${viewAccountBox()}`;
+  }
+
+  // ---------- excluir conta (V10) ----------
+  function viewAccountBox() {
+    const d = home.delAcc;
+    if (!d.open) return `<section class="account-box" id="accountBox"><div><span class="eyebrow">Sua conta</span><p class="muted">${esc(account.user.email || '')}</p></div>
+      <button class="linkish danger-link" id="delAccOpen">Excluir minha conta</button></section>`;
+    return `<section class="panel account-box del-open" id="accountBox">
+      <div class="stack" style="gap:10px">
+        <span class="eyebrow">Excluir conta</span>
+        <h2>Excluir a conta para sempre?</h2>
+        <p class="muted">Isto apaga de vez, sem como recuperar:</p>
+        <ul class="del-list">
+          <li>o seu login (${esc(account.user.email || 'e-mail')}) e o acesso com Google;</li>
+          <li>todas as carreiras salvas na conta, dos dois modos;</li>
+          <li>as carreiras que você compartilhou na Comunidade e os links delas;</li>
+          <li>as denúncias que você fez.</li>
+        </ul>
+        <p class="muted">Carreiras de convidado salvas neste aparelho continuam aqui. Você pode criar uma conta nova depois, mas ela começa vazia.</p>
+        <div class="field"><label for="f-delconfirm">Para confirmar, digite EXCLUIR</label>
+          <input class="input" id="f-delconfirm" autocomplete="off" autocapitalize="characters" placeholder="EXCLUIR"></div>
+        ${d.err ? `<p class="form-err" role="alert">${esc(d.err)}</p>` : ''}
+        <div class="btn-row"><button class="btn btn-danger" id="delAccYes" ${d.busy ? 'disabled' : ''}>${d.busy ? 'Excluindo…' : 'Excluir minha conta'}</button><button class="btn btn-ghost" id="delAccNo" ${d.busy ? 'disabled' : ''}>Cancelar</button></div>
+      </div></section>`;
+  }
+  async function deleteAccountNow() {
+    const f = document.getElementById('f-delconfirm');
+    if (!f || f.value.trim().toUpperCase() !== 'EXCLUIR') { home.delAcc.err = 'Digite EXCLUIR para confirmar.'; render(); document.getElementById('f-delconfirm')?.focus(); return; }
+    home.delAcc = { open: true, busy: true, err: '' }; render();
+    clearTimeout(saveTimer); dirty = false;
+    try {
+      await Cloud.deleteAccount();
+      for (const k in shareMap) delete shareMap[k];
+      account = { mode: null, user: null }; state = null; home.list = null; home.delAcc = { open: false, busy: false, err: '' };
+      home.authMode = 'login'; home.err = ''; home.info = 'Sua conta e todos os dados dela foram excluídos.';
+      comm.items = [];
+      if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+      ui = { view: 'home', confirm: null, modal: null, fresh: false };
+      render(); scrollTo({ top: 0 });
+    } catch (e) { home.delAcc = { open: true, busy: false, err: e.message }; render(); }
+  }
+  function openDeleteAccount() {
+    home.delAcc = { open: true, busy: false, err: '' }; render();
+    const box = document.getElementById('accountBox'); if (box) box.scrollIntoView({ behavior: 'auto', block: 'center' });
   }
 
   // redesenha a tela de login sem apagar o que a pessoa já digitou nos campos de senha
@@ -1277,6 +1331,9 @@
       return;
     }
     if (b.id === 'signOut') { await Cloud.signOut(); return; }
+    if (b.id === 'delAccOpen') { openDeleteAccount(); return; }
+    if (b.id === 'delAccNo') { home.delAcc = { open: false, busy: false, err: '' }; if (location.hash === '#excluir-conta') history.replaceState(null, '', location.pathname + location.search); render(); return; }
+    if (b.id === 'delAccYes') { deleteAccountNow(); return; }
     if (b.id === 'newFromHome' || b.id === 'newFromHome2') { state = null; draft = freshDraft(); ui = { view: 'create', confirm: null, modal: null, fresh: false }; render(); scrollTo({ top: 0 }); return; }
     if (b.id === 'reloadList') return loadList();
     if (b.dataset.open) return openCareer(b.dataset.open);

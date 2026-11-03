@@ -610,3 +610,11 @@ body[data-mode="trivia"] .tvivo { width: 100%; max-width: 780px; justify-self: c
   .top-right { margin-left: auto; gap: 6px; }
   .top-btn { height: 32px; padding: 0 11px; font-size: 13px; }
 }
+
+/* V10: excluir conta */
+.account-box { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--line); }
+.account-box.del-open { display: block; border: 1px solid color-mix(in srgb, var(--bad) 55%, var(--line)); border-radius: var(--r-lg); padding: 20px; max-width: 640px; }
+.account-box.del-open h2 { font-size: 26px; }
+.danger-link { color: var(--bad); }
+.danger-link:hover { color: #ff8a8d; }
+.del-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; color: var(--fg); }

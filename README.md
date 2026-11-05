@@ -5,7 +5,7 @@ Simulador de carreira de tênis no navegador, com dois modos:
 - **FULL Sim:** você cria o jogador, sorteia o overall e a idade de estreia, escolhe o estilo de jogo e toma as decisões que definem títulos, lesões, rivalidades e o seu lugar no ranking, temporada a temporada, até a aposentadoria.
 - **Trivia:** sem overall e sem sorte. Cada rodada de cada torneio é uma pergunta de tênis com o relógio correndo: acertou, avança; errou, está fora.
 
-Funciona no computador e no celular, sem instalar nada.
+Funciona no computador e no celular, sem instalar nada: <https://tennissimulator.com.br>
 
 ## Como rodar
 

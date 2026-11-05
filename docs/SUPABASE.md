@@ -20,8 +20,8 @@ O jogo oferece **Entrar com Google** e **e-mail e senha**. Ele lê do próprio S
 
 ### Endereços (obrigatório)
 **Authentication > URL Configuration**
-- **Site URL:** `https://pedrodinaccicelia-max.github.io/TENNIS-SIM/`
-- **Redirect URLs:** o mesmo endereço e, para testes no computador, `http://localhost:8000/`
+- **Site URL:** `https://tennissimulator.com.br/` (o endereço antiga do GitHub Pages redireciona para ele)
+- **Redirect URLs:** `https://tennissimulator.com.br/**`, `https://www.tennissimulator.com.br/**` e, para testes no computador, `http://localhost:8000/**`
 
 ### E-mail e senha
 **Authentication > Sign In / Providers > Email**
@@ -38,7 +38,7 @@ O jogo oferece **Entrar com Google** e **e-mail e senha**. Ele lê do próprio S
 2. **Google Auth Platform > Branding** (ou "Tela de consentimento OAuth"): nome do app, e-mail de suporte e e-mail de contato. Em **Audience**, escolha **External** e depois **Publish app**, para que qualquer pessoa consiga entrar (sem publicar, só os "usuários de teste" conseguem).
 3. **Google Auth Platform > Clients > Create client**:
    - Tipo: **Web application**
-   - **Authorized JavaScript origins:** `https://pedrodinaccicelia-max.github.io`
+   - **Authorized JavaScript origins:** `https://tennissimulator.com.br` e `https://www.tennissimulator.com.br`
    - **Authorized redirect URIs:** `https://rgyraqbvidnzzapdvrhm.supabase.co/auth/v1/callback`
 4. Copie o **Client ID** e o **Client secret**.
 5. No Supabase: **Authentication > Sign In / Providers > Google**, ative, cole os dois valores e salve.

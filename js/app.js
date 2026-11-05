@@ -1152,6 +1152,7 @@
         ${pwField('f-pass', 'Senha', m === 'signup' ? 'new-password' : 'current-password')}
         ${m === 'signup' ? `<div class="field"><label for="f-pass2">Repita a senha</label><input class="input" id="f-pass2" type="${home.showPw ? 'text' : 'password'}" autocomplete="new-password"></div>` : ''}
         <button class="btn btn-primary" type="submit" ${busy ? 'disabled' : ''}>${busy ? 'Aguarde…' : m === 'signup' ? 'Criar conta' : 'Entrar'}</button>
+        ${m === 'signup' ? '<p class="legal-note">Ao criar a conta, você concorda com os <a href="termos.html" target="_blank" rel="noopener">Termos de uso</a> e a <a href="privacidade.html" target="_blank" rel="noopener">Política de privacidade</a>.</p>' : ''}
         ${err}
       </form>
       ${m === 'login' ? `<button class="linkish" id="forgotBtn">Esqueci a senha</button>` : ''}`;

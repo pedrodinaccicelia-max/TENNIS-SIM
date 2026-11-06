@@ -20,7 +20,7 @@ O jogo oferece **Entrar com Google** e **e-mail e senha**. Ele lê do próprio S
 
 ### Endereços (obrigatório)
 **Authentication > URL Configuration**
-- **Site URL:** `https://tennissimulator.com.br/` (o endereço antigo do GitHub Pages redireciona para ele)
+- **Site URL:** `https://tennissimulator.com.br/` (hospedado na Cloudflare Pages)
 - **Redirect URLs:** `https://tennissimulator.com.br/**`, `https://www.tennissimulator.com.br/**` e, para testes no computador, `http://localhost:8000/**`
 
 ### E-mail e senha

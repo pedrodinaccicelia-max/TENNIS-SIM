@@ -63,5 +63,5 @@ As regras completas da versão atual estão em [`docs/regras/`](docs/regras/). E
 
 ## Próximos passos
 
-- Publicação do site (GitHub Pages ou Vercel).
+- Site publicado na Cloudflare Pages (projeto `tennis-sim`), em https://tennissimulator.com.br, com deploy automático a cada push na branch main.
 - SMTP próprio para os e-mails de login e página de privacidade.

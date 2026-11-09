@@ -22,6 +22,8 @@ Há dois modos de jogo:
 - **Convidado:** a carreira fica salva só no navegador (localStorage).
 - **Com conta:** entrar com Google ou com e-mail e senha (Supabase) e carreiras salvas na nuvem, com a lista "Minhas carreiras". A configuração está em [`docs/SUPABASE.md`](docs/SUPABASE.md).
 
+**Publicar uma mudança:** a Cloudflare guarda CSS e JS no navegador por até 4 horas. Ao mudar qualquer arquivo de `css/` ou `js/`, troque o número `?v=` nos `<link>`/`<script>` do `index.html` e das páginas `sobre.html`, `privacidade.html` e `termos.html`, para os jogadores receberem a versão nova na hora.
+
 ## Estrutura
 
 ```

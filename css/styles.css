@@ -643,3 +643,4 @@ a.top-btn { display: inline-flex; align-items: center; text-decoration: none; co
 .legal-note { font-size: 13px; color: var(--muted); }
 .legal-note a { color: var(--fg); }
 body[data-view="game"] .site-foot { display: none; }
+.legal h3 { font: 700 19px/1.2 var(--f-data); text-transform: uppercase; margin-top: 12px; }

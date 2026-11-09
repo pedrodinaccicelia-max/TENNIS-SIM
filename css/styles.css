@@ -644,3 +644,29 @@ a.top-btn { display: inline-flex; align-items: center; text-decoration: none; co
 .legal-note a { color: var(--fg); }
 body[data-view="game"] .site-foot { display: none; }
 .legal h3 { font: 700 19px/1.2 var(--f-data); text-transform: uppercase; margin-top: 12px; }
+
+/* ---------- Anúncios (AdSense) ---------- */
+/* Os espaços ficam invisíveis até o Google preencher o anúncio (antes da aprovação, nada aparece). */
+.ad-label { display: block; font: 600 11px var(--f-data); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.ad-slot { text-align: center; }
+.ad-slot:not(.is-filled) { height: 0; overflow: hidden; visibility: hidden; margin: 0 !important; }
+.ad-slot ins.adsbygoogle { display: inline-block; }
+.ad-top { margin: -8px 0 24px; flex: none; }
+.ad-top .ad-label { margin-bottom: 4px; }
+.ad-top ins.adsbygoogle { width: 320px; height: 50px; }
+@media (min-width: 768px) { .ad-top ins.adsbygoogle { width: 728px; height: 90px; } }
+body[data-view="game"] .ad-top, body[data-view="trivia-game"] .ad-top { margin: 0 0 12px; }
+/* laterais: fora da área do jogo, só em telas largas; o conteúdo encolhe para não ficar embaixo delas */
+.ad-rail { position: fixed; top: 96px; z-index: 5; width: 160px; }
+.ad-rail .ad-label { margin-bottom: 4px; }
+.ad-rail ins.adsbygoogle { width: 160px; height: 600px; }
+.ad-left { left: 16px; }
+.ad-right { right: 16px; }
+@media (min-width: 1440px) and (min-height: 720px) { body.rails-on .wrap { max-width: min(1480px, calc(100vw - 2 * (160px + 16px + 32px))); } }
+@media (max-width: 1439px), (max-height: 719px) { .ad-rail { display: none; } }
+/* pop-up (modo 'modal'): só aparece depois que o anúncio carrega */
+.ad-pop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 16px; background: rgba(5, 9, 16, .82); }
+.ad-pop.is-loading { opacity: 0; pointer-events: none; }
+.ad-pop-card { width: min(380px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 16px; display: grid; gap: 14px; justify-items: center; }
+.ad-pop-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ad-pop ins.adsbygoogle { display: inline-block; width: 300px; height: 250px; }

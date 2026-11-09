@@ -33,6 +33,7 @@ js/trivia.js          Modo Trivia: gera o banco de perguntas e controla a carrei
 js/trivia-data.js     Dados históricos usados nas perguntas (gerado por tools/build-data.js a partir de data/raw.json)
 js/trivia-curated.js  Perguntas escritas à mão (regras, recordes, história, curiosidades)
 js/cloud.js           Login e carreiras na nuvem (Supabase)
+js/ads.js             Anúncios do AdSense: banners (topo e laterais) e anúncio de tela cheia
 js/app.js             Telas e fluxo: tela inicial, criação, painel em etapas, temporada ao vivo, resumo
 supabase/migrations/  Estrutura do banco (tabela de carreiras e regras de acesso)
 tests/simulacao.js    Simulação em massa para calibrar as probabilidades

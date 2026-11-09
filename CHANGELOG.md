@@ -3,6 +3,8 @@
 O detalhamento de cada versão está nos documentos de [`docs/regras/`](docs/regras/).
 
 ## V10: Comunidade
+- **Anúncios (Google AdSense):** banner no topo de todas as telas e banners laterais em telas largas (`js/ads.js`), visíveis só quando o Google entrega um anúncio. Anúncio de tela cheia uma vez no fim de cada carreira e, no Trivia, a cada 3 torneios, sempre antes da próxima pergunta (H5 Games Ads; modo alternativo com janela própria). `ads.txt` na raiz, página **Como jogar** (`/sobre.html`) e política de privacidade/termos atualizados.
+- Site hospedado na Cloudflare Pages (antes GitHub Pages).
 - Páginas de **Política de privacidade** (`/privacidade.html`) e **Termos de uso** (`/termos.html`), com links no rodapé e no cadastro. Responsável: DC Serviços de Tecnologia; contato: contato@tennissimulator.com.br.
 - **Excluir conta:** em "Minhas carreiras" (e pelo link `#excluir-conta`), o jogador apaga a conta e tudo dela: login, carreiras, carreiras compartilhadas e denúncias. Feito pela função `delete-account` no Supabase.
 - Só quem tem conta publica: carreiras de convidado não podem ser compartilhadas, nem depois de salvas na conta (coluna `from_guest`, migração 006). Convidados podem ver a Comunidade normalmente.

@@ -782,6 +782,12 @@
 
   // relógio da pergunta
   let tqTimer = null;
+  // anúncio de tela cheia uma única vez por carreira, ao abrir o resumo de uma carreira que acabou de terminar
+  function endAd() {
+    if (!window.Ads || !state || !state.retired || state.adEnd) return;
+    state.adEnd = true; persist();
+    Ads.interstitial('fim-de-carreira');
+  }
   function stopTriviaClock() { clearInterval(tqTimer); tqTimer = null; }
   // V9: o painel da pergunta fica no centro; se o jogador rolou até a tabela, volta para ele
   function showTriviaPanel() {
@@ -817,10 +823,20 @@
   }
   function triviaClick(b) {
     if (b.dataset.opt !== undefined) { triviaAnswer(+b.dataset.opt); return true; }
-    if (b.id === 'tqNext') { Trivia.cont(state); ui.fresh = !state.inSeason; render(); ui.fresh = false; showTriviaPanel(); return true; }
+    if (b.id === 'tqNext') {
+      if (window.Ads && Ads.busy) return true;
+      const go = () => { Trivia.cont(state); ui.fresh = !state.inSeason; render(); ui.fresh = false; showTriviaPanel(); };
+      // anúncio a cada N torneios: aparece com o resultado do torneio na tela, antes de existir a próxima pergunta
+      const f = state.inSeason && state.inSeason.fb;
+      if (window.Ads && f && f.ended && !f.skip) {
+        state.adT = (state.adT || 0) + 1;
+        if (state.adT % Ads.triviaEvery === 0) { persist(); b.disabled = true; Ads.interstitial('trivia-torneios').then(go); return true; }
+      }
+      go(); return true;
+    }
     if (b.id === 'bonusYes' || b.id === 'bonusNo') { Trivia.takeBonus(state, b.id === 'bonusYes'); render(); showTriviaPanel(); return true; }
     if (b.id === 'tStart') { ui.confirm = null; Trivia.startSeason(state); render(); showTriviaPanel(); return true; }
-    if (b.id === 'retireYes') { Trivia.retire(state); ui.confirm = null; ui.view = 'summary'; persist(); render(); scrollTo({ top: 0 }); return true; }
+    if (b.id === 'retireYes') { Trivia.retire(state); ui.confirm = null; ui.view = 'summary'; persist(); render(); scrollTo({ top: 0 }); endAd(); return true; }
     return false;
   }
   document.addEventListener('keydown', e => {
@@ -1419,8 +1435,8 @@
     if (b.id === 'skipLive' || b.id === 'skipLive2') { skipLive(); return; }
     if (b.id === 'retireBtn') { ui.confirm = 'retire'; render(); return; }
     if (b.id === 'retireNo') { ui.confirm = null; render(); return; }
-    if (b.id === 'retireYes') { Engine.retire(state); ui.confirm = null; ui.view = 'summary'; persist(); render(); scrollTo({ top: 0 }); return; }
-    if (b.id === 'toSummary') { ui.view = 'summary'; persist(); render(); scrollTo({ top: 0 }); return; }
+    if (b.id === 'retireYes') { Engine.retire(state); ui.confirm = null; ui.view = 'summary'; persist(); render(); scrollTo({ top: 0 }); endAd(); return; }
+    if (b.id === 'toSummary') { ui.view = 'summary'; persist(); render(); scrollTo({ top: 0 }); endAd(); return; }
     if (b.id === 'backGame') { ui.view = 'game'; ui.confirm = null; persist(); render(); return; }
     if (b.id === 'newCareer') {
       if (account.mode === 'user') { flushCloud(); clearLive(); state = null; draft = freshDraft(); ui = { view: 'create', confirm: null, modal: null, fresh: false }; render(); scrollTo({ top: 0 }); return; }
